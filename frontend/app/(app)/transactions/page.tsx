@@ -1,0 +1,372 @@
+'use client';
+import { useCallback, useEffect, useState } from 'react';
+import Header from '@/components/layout/Header';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
+import Modal from '@/components/ui/Modal';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
+import Spinner from '@/components/ui/Spinner';
+import api from '@/lib/api';
+import { formatCurrency, formatDate } from '@/lib/format';
+import { useForm } from 'react-hook-form';
+import type { Transaction, Category, Account, PaginatedResponse } from '@/types';
+import {
+  HiPlus,
+  HiChevronLeft,
+  HiChevronRight,
+  HiTrash,
+} from 'react-icons/hi';
+
+interface TransactionForm {
+  descricao: string;
+  valor: string;
+  tipo: string;
+  data: string;
+  accountId: string;
+  categoryId: string;
+  recorrente: boolean;
+}
+
+const tipoColors: Record<string, 'success' | 'danger' | 'info'> = {
+  receita: 'success',
+  despesa: 'danger',
+  'transferência': 'info',
+};
+
+const tipoLabels: Record<string, string> = {
+  receita: 'Receita',
+  despesa: 'Despesa',
+  'transferência': 'Transferência',
+};
+
+export default function TransactionsPage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [filterTipo, setFilterTipo] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const LIMIT = 15;
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<TransactionForm>({
+    defaultValues: {
+      tipo: 'despesa',
+      data: new Date().toISOString().split('T')[0],
+      recorrente: false,
+    },
+  });
+
+  const loadTransactions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string | number> = { page, limit: LIMIT };
+      if (filterTipo) params.tipo = filterTipo;
+      const res = await api.get<PaginatedResponse<Transaction>>(
+        '/transactions',
+        { params }
+      );
+      setTransactions(res.data.data);
+      setTotal(res.data.total);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, filterTipo]);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  useEffect(() => {
+    Promise.all([
+      api.get<Category[]>('/categories'),
+      api.get<Account[]>('/accounts'),
+    ]).then(([c, a]) => {
+      setCategories(c.data);
+      setAccounts(a.data);
+    });
+  }, []);
+
+  const openModal = () => {
+    reset({
+      tipo: 'despesa',
+      data: new Date().toISOString().split('T')[0],
+      recorrente: false,
+    });
+    setModalOpen(true);
+  };
+
+  const onSubmit = async (data: TransactionForm) => {
+    setSubmitting(true);
+    try {
+      await api.post('/transactions', {
+        ...data,
+        valor: parseFloat(data.valor),
+        categoryId: data.categoryId || undefined,
+        accountId: data.accountId || undefined,
+      });
+      setModalOpen(false);
+      setPage(1);
+      await loadTransactions();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      alert(e.response?.data?.message ?? 'Erro ao criar transação');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Excluir esta transação?')) return;
+    await api.delete(`/transactions/${id}`);
+    await loadTransactions();
+  };
+
+  const totalPages = Math.ceil(total / LIMIT);
+
+  const categoryOptions = [
+    { value: '', label: 'Sem categoria' },
+    ...categories.map((c) => ({ value: c.id, label: c.nome })),
+  ];
+
+  const accountOptions = [
+    { value: '', label: 'Selecione uma conta' },
+    ...accounts.map((a) => ({ value: a.id, label: `${a.nome} (${formatCurrency(a.saldoAtual)})` })),
+  ];
+
+  return (
+    <div className="flex-1">
+      <Header
+        title="Transações"
+        subtitle={`${total} transações encontradas`}
+        actions={
+          <Button onClick={openModal} size="sm">
+            <HiPlus className="h-4 w-4" />
+            Nova Transação
+          </Button>
+        }
+      />
+
+      <div className="p-6 space-y-4">
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap">
+          {['', 'receita', 'despesa', 'transferência'].map((tipo) => (
+            <button
+              key={tipo}
+              onClick={() => { setFilterTipo(tipo); setPage(1); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                filterTipo === tipo
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {tipo === '' ? 'Todas' : tipoLabels[tipo]}
+            </button>
+          ))}
+        </div>
+
+        {/* Table */}
+        <Card noPadding>
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Spinner className="text-primary-600" />
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <p className="text-4xl mb-3">💸</p>
+              <p className="font-medium">Nenhuma transação encontrada</p>
+              <p className="text-sm mt-1">Clique em &quot;Nova Transação&quot; para começar</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Data
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Descrição
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Categoria
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Conta
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Tipo
+                    </th>
+                    <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Valor
+                    </th>
+                    <th className="px-6 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {transactions.map((t) => (
+                    <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-3.5 text-gray-500 whitespace-nowrap">
+                        {formatDate(t.data)}
+                      </td>
+                      <td className="px-6 py-3.5 font-medium text-gray-900 max-w-[200px] truncate">
+                        {t.descricao}
+                      </td>
+                      <td className="px-6 py-3.5 text-gray-500">
+                        {t.category?.nome ?? '—'}
+                      </td>
+                      <td className="px-6 py-3.5 text-gray-500">
+                        {t.account?.nome ?? '—'}
+                      </td>
+                      <td className="px-6 py-3.5">
+                        <Badge variant={tipoColors[t.tipo] ?? 'default'}>
+                          {tipoLabels[t.tipo] ?? t.tipo}
+                        </Badge>
+                      </td>
+                      <td
+                        className={`px-6 py-3.5 text-right font-semibold ${
+                          t.tipo === 'receita'
+                            ? 'text-green-600'
+                            : 'text-red-500'
+                        }`}
+                      >
+                        {t.tipo === 'receita' ? '+' : '-'}
+                        {formatCurrency(t.valor)}
+                      </td>
+                      <td className="px-6 py-3.5">
+                        <button
+                          onClick={() => handleDelete(t.id)}
+                          className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                          title="Excluir"
+                        >
+                          <HiTrash className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>
+              Página {page} de {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page <= 1}
+              >
+                <HiChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages}
+              >
+                Próxima
+                <HiChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* New Transaction Modal */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Nova Transação"
+      >
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <Input
+            label="Descrição"
+            placeholder="Ex: Supermercado"
+            error={errors.descricao?.message}
+            {...register('descricao', { required: 'Descrição é obrigatória' })}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Valor (R$)"
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="0,00"
+              error={errors.valor?.message}
+              {...register('valor', {
+                required: 'Valor é obrigatório',
+                min: { value: 0.01, message: 'Valor deve ser positivo' },
+              })}
+            />
+            <Input
+              label="Data"
+              type="date"
+              error={errors.data?.message}
+              {...register('data', { required: 'Data é obrigatória' })}
+            />
+          </div>
+          <Select
+            label="Tipo"
+            options={[
+              { value: 'despesa', label: 'Despesa' },
+              { value: 'receita', label: 'Receita' },
+              { value: 'transferência', label: 'Transferência' },
+            ]}
+            {...register('tipo', { required: true })}
+          />
+          <Select
+            label="Conta"
+            options={accountOptions}
+            error={errors.accountId?.message}
+            {...register('accountId', { required: 'Selecione uma conta' })}
+          />
+          <Select
+            label="Categoria"
+            options={categoryOptions}
+            {...register('categoryId')}
+          />
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded border-gray-300"
+              {...register('recorrente')}
+            />
+            Transação recorrente
+          </label>
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              fullWidth
+              onClick={() => setModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" fullWidth loading={submitting}>
+              Salvar
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}
