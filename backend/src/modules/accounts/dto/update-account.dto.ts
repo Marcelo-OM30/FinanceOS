@@ -35,6 +35,11 @@ export class UpdateAccountDto {
   numeroConta?: string;
 
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  saldoInicial?: number;
+
+  @IsOptional()
   @IsIn(['BRL', 'USD', 'EUR'])
   moeda?: string;
 

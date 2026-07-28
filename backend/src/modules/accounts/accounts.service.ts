@@ -73,6 +73,13 @@ export class AccountsService {
       if (existing) throw new ConflictException('Número de conta já cadastrado');
     }
 
+    // Mudar o saldo inicial não deve apagar o efeito de transações já
+    // lançadas: desloca o saldo atual pela mesma diferença.
+    if (dto.saldoInicial !== undefined) {
+      const delta = Number(dto.saldoInicial) - Number(account.saldoInicial);
+      account.saldoAtual = Number(account.saldoAtual) + delta;
+    }
+
     Object.assign(account, dto);
     return this.accountsRepository.save(account);
   }
