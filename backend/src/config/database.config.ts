@@ -1,3 +1,4 @@
+import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { User } from '../modules/users/entities/user.entity';
@@ -34,6 +35,6 @@ export const databaseConfig = (
   ],
   synchronize: configService.get('NODE_ENV') === 'development',
   logging: configService.get('NODE_ENV') === 'development',
-  migrations: ['src/database/migrations/*.ts'],
+  migrations: [join(__dirname, '../database/migrations', __filename.endsWith('.ts') ? '*.ts' : '*.js')],
   migrationsTableName: 'typeorm_migrations',
 });

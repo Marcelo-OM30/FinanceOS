@@ -4,11 +4,14 @@
   "description": "Backend API para Finance OS - Plataforma de Inteligência Financeira",
   "author": "Marcelo",
   "license": "MIT",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "npm run migration:run:prod && node dist/main",
     "build": "nest build",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
@@ -16,7 +19,11 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed:categories": "ts-node -r tsconfig-paths/register src/database/seeds/seed-categories.ts"
+    "seed:categories": "ts-node -r tsconfig-paths/register src/database/seeds/seed-categories.ts",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
+    "migration:run:prod": "typeorm migration:run -d dist/database/data-source.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
