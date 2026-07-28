@@ -49,6 +49,9 @@ export class Account {
   @Column('boolean', { default: true })
   ativo: boolean = true;
 
+  @Column('varchar', { length: 20, nullable: true })
+  cor?: string;
+
   @Column('date', { nullable: true })
   dataAbertura?: Date;
 

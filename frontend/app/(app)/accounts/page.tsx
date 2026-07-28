@@ -57,7 +57,7 @@ export default function AccountsPage() {
     setLoading(true);
     try {
       const res = await api.get<Account[]>('/accounts');
-      setAccounts(res.data);
+      setAccounts(Array.isArray(res.data) ? res.data : []);
     } finally {
       setLoading(false);
     }

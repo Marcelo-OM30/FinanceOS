@@ -92,8 +92,8 @@ export default function TransactionsPage() {
       api.get<Category[]>('/categories'),
       api.get<Account[]>('/accounts'),
     ]).then(([c, a]) => {
-      setCategories(c.data);
-      setAccounts(a.data);
+      setCategories(Array.isArray(c.data) ? c.data : []);
+      setAccounts(Array.isArray(a.data) ? a.data : []);
     });
   }, []);
 

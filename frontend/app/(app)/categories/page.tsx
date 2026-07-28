@@ -52,7 +52,7 @@ export default function CategoriesPage() {
     setLoading(true);
     try {
       const res = await api.get<Category[]>('/categories');
-      setCategories(res.data);
+      setCategories(Array.isArray(res.data) ? res.data : []);
     } finally {
       setLoading(false);
     }

@@ -17,7 +17,7 @@ import { clsx } from 'clsx';
 
 interface BudgetForm {
   categoryId: string;
-  valorLimite: string;
+  limiteMensal: string;
   mes: string;
   ano: string;
   alertaPercentual: string;
@@ -52,8 +52,8 @@ export default function BudgetsPage() {
         api.get<Budget[]>('/budgets'),
         api.get<Category[]>('/categories'),
       ]);
-      setBudgets(b.data);
-      setCategories(c.data.filter((c) => c.tipo !== 'receita'));
+      setBudgets(Array.isArray(b.data) ? b.data : []);
+      setCategories(Array.isArray(c.data) ? c.data.filter((c) => c.tipo !== 'receita') : []);
     } finally {
       setLoading(false);
     }
@@ -75,7 +75,7 @@ export default function BudgetsPage() {
     try {
       await api.post('/budgets', {
         categoryId: data.categoryId,
-        valorLimite: parseFloat(data.valorLimite),
+        limiteMensal: parseFloat(data.limiteMensal),
         mes: parseInt(data.mes),
         ano: parseInt(data.ano),
         alertaPercentual: parseInt(data.alertaPercentual),
@@ -191,7 +191,7 @@ export default function BudgetsPage() {
                     <span className="text-gray-500">
                       Limite:{' '}
                       <span className="font-medium text-gray-900">
-                        {formatCurrency(b.valorLimite)}
+                        {formatCurrency(b.limiteMensal)}
                       </span>
                     </span>
                     <span
@@ -233,8 +233,8 @@ export default function BudgetsPage() {
             step="0.01"
             min="0.01"
             placeholder="0,00"
-            error={errors.valorLimite?.message}
-            {...register('valorLimite', { required: 'Limite é obrigatório' })}
+            error={errors.limiteMensal?.message}
+            {...register('limiteMensal', { required: 'Limite é obrigatório' })}
           />
           <div className="grid grid-cols-2 gap-3">
             <Select

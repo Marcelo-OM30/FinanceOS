@@ -52,8 +52,8 @@ export class GoalsService {
     const goal = this.goalsRepository.create({
       ...dto,
       userId,
-      dataInicio: new Date(dto.dataInicio) as any,
-      dataFim: new Date(dto.dataFim) as any,
+      dataInicio: dto.dataInicio as any,
+      dataFim: dto.dataFim as any,
       prioridade: dto.prioridade ?? 'media',
       valorAtual: 0,
       status: 'ativa',
@@ -68,7 +68,7 @@ export class GoalsService {
     if (!goal) throw new NotFoundException('Meta não encontrada');
 
     if (dto.dataFim) {
-      goal.dataFim = new Date(dto.dataFim) as any;
+      goal.dataFim = dto.dataFim as any;
     }
 
     Object.assign(goal, dto);
@@ -103,7 +103,7 @@ export class GoalsService {
       goalId: goal.id,
       valorAdicionado: dto.valorAdicionado,
       percentualProgresso: percentual,
-      dataRegistro: dto.dataRegistro ? (new Date(dto.dataRegistro) as any) : (new Date() as any),
+      ...(dto.dataRegistro ? { dataRegistro: dto.dataRegistro as any } : {}),
     });
     await this.progressRepository.save(progress);
 

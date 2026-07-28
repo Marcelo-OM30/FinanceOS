@@ -58,7 +58,7 @@ export interface Budget {
   id: string;
   mes: number;
   ano: number;
-  valorLimite: number;
+  limiteMensal: number;
   gastoAtual: number;
   alertaPercentual: number;
   percentualUtilizado: number;
@@ -73,9 +73,10 @@ export interface Goal {
   descricao?: string;
   valorAlvo: number;
   valorAtual: number;
-  dataAlvo?: string;
+  dataInicio: string;
+  dataFim: string;
+  prioridade: string;
   status: 'ativa' | 'pausada' | 'concluída' | 'cancelada';
-  cor?: string;
   percentualProgresso: number;
   diasRestantes?: number;
   emRisco: boolean;

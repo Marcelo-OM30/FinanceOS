@@ -16,7 +16,7 @@ export class UpdateAccountDto {
   nome?: string;
 
   @IsOptional()
-  @IsIn(['corrente', 'poupança', 'investimento', 'carteira', 'outro'])
+  @IsIn(['corrente', 'poupanca', 'investimento', 'carteira', 'outro'])
   tipo?: string;
 
   @IsOptional()
@@ -45,4 +45,9 @@ export class UpdateAccountDto {
   @IsOptional()
   @IsDateString()
   dataAbertura?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  cor?: string;
 }

@@ -105,13 +105,21 @@ export class BudgetsService {
   }
 
   private async enrichWithProgress(budget: Budget): Promise<BudgetWithProgress> {
+    const gastoAtual = await this.transactionsService.sumByCategory(
+      budget.userId,
+      budget.categoryId,
+      budget.mes,
+      budget.ano,
+    );
+
     const percentualUtilizado =
       budget.limiteMensal > 0
-        ? Math.round((Number(budget.gastoAtual) / Number(budget.limiteMensal)) * 100)
+        ? Math.round((gastoAtual / Number(budget.limiteMensal)) * 100)
         : 0;
 
     return {
       ...budget,
+      gastoAtual,
       percentualUtilizado,
       emAlerta: percentualUtilizado >= budget.alertaPercentual && percentualUtilizado < 100,
       estourado: percentualUtilizado >= 100,

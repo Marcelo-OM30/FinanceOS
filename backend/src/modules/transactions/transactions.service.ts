@@ -34,7 +34,7 @@ export class TransactionsService {
     if (cardId) where.cardId = cardId;
     if (tipo) where.tipo = tipo;
     if (dataInicio && dataFim) {
-      where.data = Between(new Date(dataInicio), new Date(dataFim)) as any;
+      where.data = Between(dataInicio, dataFim) as any;
     }
 
     const [data, total] = await this.transactionsRepository.findAndCount({
@@ -67,8 +67,8 @@ export class TransactionsService {
       const transaction = manager.create(Transaction, {
         ...dto,
         userId,
-        data: new Date(dto.data) as any,
-        dataCompetencia: dto.dataCompetencia ? new Date(dto.dataCompetencia) as any : undefined,
+        data: dto.data as any,
+        dataCompetencia: dto.dataCompetencia as any,
         recurso: dto.recurso ?? 'manual',
         tags: dto.tags ?? [],
       });
@@ -100,8 +100,8 @@ export class TransactionsService {
         : Number(transaction.valor);
 
       Object.assign(transaction, dto);
-      if (dto.data) transaction.data = new Date(dto.data) as any;
-      if (dto.dataCompetencia) transaction.dataCompetencia = new Date(dto.dataCompetencia) as any;
+      if (dto.data) transaction.data = dto.data as any;
+      if (dto.dataCompetencia) transaction.dataCompetencia = dto.dataCompetencia as any;
 
       const saved = await manager.save(Transaction, transaction);
 

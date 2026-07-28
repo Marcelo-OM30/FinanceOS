@@ -14,7 +14,7 @@ export class CreateAccountDto {
   @MaxLength(255)
   nome: string;
 
-  @IsIn(['corrente', 'poupança', 'investimento', 'carteira', 'outro'])
+  @IsIn(['corrente', 'poupanca', 'investimento', 'carteira', 'outro'])
   tipo: string;
 
   @IsOptional()
@@ -44,4 +44,9 @@ export class CreateAccountDto {
   @IsOptional()
   @IsDateString()
   dataAbertura?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  cor?: string;
 }
