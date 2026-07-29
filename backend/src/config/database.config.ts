@@ -11,16 +11,13 @@ import { Goal } from '../modules/goals/entities/goal.entity';
 import { GoalProgress } from '../modules/goals/entities/goal-progress.entity';
 import { Alert } from '../modules/dashboard/entities/alert.entity';
 import { AuditLog } from '../database/entities/audit-log.entity';
+import { resolveDatabaseConnection } from './database-connection';
 
 export const databaseConfig = (
   configService: ConfigService,
 ): TypeOrmModuleOptions => ({
   type: 'postgres',
-  host: configService.get('DATABASE_HOST', 'localhost'),
-  port: configService.get('DATABASE_PORT', 5432),
-  username: configService.get('DATABASE_USER', 'postgres'),
-  password: configService.get('DATABASE_PASSWORD', 'postgres'),
-  database: configService.get('DATABASE_NAME', 'finance_os_db'),
+  ...resolveDatabaseConnection((key) => configService.get<string>(key)),
   entities: [
     User,
     Account,

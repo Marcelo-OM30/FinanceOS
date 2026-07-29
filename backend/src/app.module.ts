@@ -16,6 +16,9 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 // Database configuration
 import { databaseConfig } from './config/database.config';
 
+// Health check (usado pelo healthcheck da plataforma de deploy)
+import { HealthController } from './common/health.controller';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -44,5 +47,6 @@ import { databaseConfig } from './config/database.config';
     GoalsModule,
     DashboardModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

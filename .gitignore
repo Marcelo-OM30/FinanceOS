@@ -1,8 +1,9 @@
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
+# package-lock.json fica versionado de propósito: o build de produção roda
+# npm ci, que exige o lock para instalar versões exatas e reproduzíveis.
 
 # Environment
 .env
@@ -15,6 +16,7 @@ build/
 .next/
 out/
 .turbo/
+*.tsbuildinfo
 
 # IDE
 .vscode/
