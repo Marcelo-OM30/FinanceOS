@@ -115,7 +115,7 @@ export default function GoalsPage() {
         }
       />
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Spinner className="text-primary-600" />
@@ -247,7 +247,7 @@ export default function GoalsPage() {
             error={goalForm.formState.errors.valorAlvo?.message}
             {...goalForm.register('valorAlvo', { required: 'Valor é obrigatório' })}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Data de início"
               type="date"

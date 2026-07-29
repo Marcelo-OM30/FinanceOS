@@ -129,7 +129,7 @@ export default function CategoriesPage() {
         }
       />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Spinner className="text-primary-600" />
@@ -242,7 +242,7 @@ export default function CategoriesPage() {
             ]}
             {...register('tipo', { required: true })}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Emoji/Ícone"
               placeholder="🏷️"

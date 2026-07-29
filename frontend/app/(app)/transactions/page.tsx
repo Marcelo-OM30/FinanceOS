@@ -157,7 +157,7 @@ export default function TransactionsPage() {
         }
       />
 
-      <div className="p-6 space-y-4">
+      <div className="p-4 sm:p-6 space-y-4">
         {/* Filters */}
         <div className="flex gap-2 flex-wrap">
           {['', 'receita', 'despesa', 'transferência'].map((tipo) => (
@@ -191,50 +191,52 @@ export default function TransactionsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
+                  {/* Colunas secundárias somem nas telas menores: no celular
+                      sobram data, descrição, valor e a ação de excluir. */}
                   <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Data
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Descrição
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="hidden md:table-cell text-left px-4 sm:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Categoria
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="hidden lg:table-cell text-left px-4 sm:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Conta
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="hidden sm:table-cell text-left px-4 sm:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Tipo
                     </th>
-                    <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="text-right px-4 sm:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Valor
                     </th>
-                    <th className="px-6 py-3" />
+                    <th className="px-4 sm:px-6 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {transactions.map((t) => (
                     <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-3.5 text-gray-500 whitespace-nowrap">
+                      <td className="px-4 sm:px-6 py-3.5 text-gray-500 whitespace-nowrap">
                         {formatDate(t.data)}
                       </td>
-                      <td className="px-6 py-3.5 font-medium text-gray-900 max-w-[200px] truncate">
+                      <td className="px-4 sm:px-6 py-3.5 font-medium text-gray-900 max-w-[140px] sm:max-w-[200px] truncate">
                         {t.descricao}
                       </td>
-                      <td className="px-6 py-3.5 text-gray-500">
+                      <td className="hidden md:table-cell px-4 sm:px-6 py-3.5 text-gray-500">
                         {t.category?.nome ?? '—'}
                       </td>
-                      <td className="px-6 py-3.5 text-gray-500">
+                      <td className="hidden lg:table-cell px-4 sm:px-6 py-3.5 text-gray-500">
                         {t.account?.nome ?? '—'}
                       </td>
-                      <td className="px-6 py-3.5">
+                      <td className="hidden sm:table-cell px-4 sm:px-6 py-3.5">
                         <Badge variant={tipoColors[t.tipo] ?? 'default'}>
                           {tipoLabels[t.tipo] ?? t.tipo}
                         </Badge>
                       </td>
                       <td
-                        className={`px-6 py-3.5 text-right font-semibold ${
+                        className={`px-4 sm:px-6 py-3.5 text-right font-semibold whitespace-nowrap ${
                           t.tipo === 'receita'
                             ? 'text-green-600'
                             : 'text-red-500'
@@ -243,7 +245,7 @@ export default function TransactionsPage() {
                         {t.tipo === 'receita' ? '+' : '-'}
                         {formatCurrency(t.valor)}
                       </td>
-                      <td className="px-6 py-3.5">
+                      <td className="px-4 sm:px-6 py-3.5">
                         <button
                           onClick={() => handleDelete(t.id)}
                           className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
@@ -303,7 +305,7 @@ export default function TransactionsPage() {
             error={errors.descricao?.message}
             {...register('descricao', { required: 'Descrição é obrigatória' })}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Valor (R$)"
               type="number"

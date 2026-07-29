@@ -119,7 +119,7 @@ export default function BudgetsPage() {
         }
       />
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Spinner className="text-primary-600" />
@@ -236,7 +236,7 @@ export default function BudgetsPage() {
             error={errors.limiteMensal?.message}
             {...register('limiteMensal', { required: 'Limite é obrigatório' })}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Mês"
               options={monthOptions}
