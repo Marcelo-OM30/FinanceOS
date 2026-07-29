@@ -11,6 +11,7 @@ import { Goal } from '../../modules/goals/entities/goal.entity';
 import { GoalProgress } from '../../modules/goals/entities/goal-progress.entity';
 import { Alert } from '../../modules/dashboard/entities/alert.entity';
 import { AuditLog } from '../../database/entities/audit-log.entity';
+import { resolveDatabaseConnection } from '../../config/database-connection';
 
 config();
 
@@ -40,11 +41,7 @@ const SYSTEM_CATEGORIES: Array<{
 async function run() {
   const dataSource = new DataSource({
     type: 'postgres',
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT) || 5432,
-    username: process.env.DATABASE_USER || 'postgres',
-    password: process.env.DATABASE_PASSWORD || 'postgres',
-    database: process.env.DATABASE_NAME || 'finance_os_db',
+    ...resolveDatabaseConnection((key) => process.env[key]),
     entities: [
       User,
       Account,
