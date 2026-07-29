@@ -22,7 +22,9 @@ export class User {
   @Column('varchar', { length: 255, unique: true })
   email!: string;
 
-  @Column('varchar', { length: 255 })
+  // select: false garante que o hash nunca saia numa consulta comum — só o
+  // login o carrega, explicitamente, via findByEmailWithPassword().
+  @Column('varchar', { length: 255, select: false })
   passwordHash!: string;
 
   @Column('varchar', { length: 255 })

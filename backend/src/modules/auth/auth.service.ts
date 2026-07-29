@@ -30,7 +30,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<any> {
-    const user = await this.usersService.findByEmail(dto.email);
+    const user = await this.usersService.findByEmailWithPassword(dto.email);
     if (!user) {
       throw new Error('Email ou senha inválidos');
     }
@@ -62,10 +62,15 @@ export class AuthService {
       secret: process.env.JWT_REFRESH_SECRET,
     });
 
+    // O usuário vai aninhado em `user`: é o formato que o frontend consome
+    // (`const { user, accessToken } = res.data`) e mantém os dados da pessoa
+    // separados das credenciais.
     return {
-      id: user.id,
-      email: user.email,
-      nome: user.nome,
+      user: {
+        id: user.id,
+        email: user.email,
+        nome: user.nome,
+      },
       accessToken,
       refreshToken,
     };
