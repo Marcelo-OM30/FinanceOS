@@ -109,11 +109,13 @@ export default function TransactionsPage() {
   const onSubmit = async (data: TransactionForm) => {
     setSubmitting(true);
     try {
+      const { recorrente, ...rest } = data;
       await api.post('/transactions', {
-        ...data,
+        ...rest,
         valor: parseFloat(data.valor),
         categoryId: data.categoryId || undefined,
         accountId: data.accountId || undefined,
+        recorrencia: recorrente ? 'mensal' : 'única',
       });
       setModalOpen(false);
       setPage(1);

@@ -49,9 +49,9 @@ export interface Transaction {
   account?: Account;
   card?: Card;
   tags: string[];
-  recorrente: boolean;
-  notaFiscal?: string;
-  createdAt: string;
+  recorrencia?: 'única' | 'semanal' | 'mensal' | 'anual';
+  numeroNota?: string;
+  dataCriacao: string;
 }
 
 export interface Budget {
