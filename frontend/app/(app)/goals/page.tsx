@@ -8,7 +8,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import api from '@/lib/api';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency, formatDate, todayISO } from '@/lib/format';
 import { useForm } from 'react-hook-form';
 import type { Goal } from '@/types';
 import { HiPlus, HiTrash, HiPlusCircle } from 'react-icons/hi';
@@ -41,7 +41,7 @@ export default function GoalsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const goalForm = useForm<GoalForm>({
-    defaultValues: { dataInicio: new Date().toISOString().split('T')[0] },
+    defaultValues: { dataInicio: todayISO() },
   });
   const progressForm = useForm<ProgressForm>();
 
@@ -68,7 +68,7 @@ export default function GoalsPage() {
         dataFim: data.dataFim,
       });
       setModalOpen(false);
-      goalForm.reset({ dataInicio: new Date().toISOString().split('T')[0] });
+      goalForm.reset({ dataInicio: todayISO() });
       await load();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };

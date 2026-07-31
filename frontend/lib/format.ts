@@ -30,6 +30,17 @@ export function getMonthName(month: number): string {
   return new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(date);
 }
 
+/**
+ * Data de hoje em YYYY-MM-DD no fuso do usuário. `toISOString()` converte para
+ * UTC e, à noite no Brasil, já devolve o dia seguinte.
+ */
+export function todayISO(): string {
+  const now = new Date();
+  const mes = String(now.getMonth() + 1).padStart(2, '0');
+  const dia = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${mes}-${dia}`;
+}
+
 export function getCurrentMonthYear(): { mes: number; ano: number } {
   const now = new Date();
   return { mes: now.getMonth() + 1, ano: now.getFullYear() };

@@ -9,7 +9,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Spinner from '@/components/ui/Spinner';
 import api from '@/lib/api';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency, formatDate, todayISO } from '@/lib/format';
 import { useForm } from 'react-hook-form';
 import type { Transaction, Category, Account, PaginatedResponse } from '@/types';
 import {
@@ -62,7 +62,7 @@ export default function TransactionsPage() {
   } = useForm<TransactionForm>({
     defaultValues: {
       tipo: 'despesa',
-      data: new Date().toISOString().split('T')[0],
+      data: todayISO(),
       recorrente: false,
     },
   });
@@ -100,7 +100,7 @@ export default function TransactionsPage() {
   const openModal = () => {
     reset({
       tipo: 'despesa',
-      data: new Date().toISOString().split('T')[0],
+      data: todayISO(),
       recorrente: false,
     });
     setModalOpen(true);

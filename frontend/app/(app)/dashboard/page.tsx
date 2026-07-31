@@ -21,7 +21,9 @@ import {
 import type {
   DashboardSummary,
   ChartCategoryItem,
+  ChartCategoriesResponse,
   ChartEvolutionItem,
+  ChartEvolutionResponse,
   Projection,
 } from '@/types';
 import {
@@ -53,14 +55,14 @@ export default function DashboardPage() {
   useEffect(() => {
     Promise.all([
       api.get<DashboardSummary>('/dashboard/summary'),
-      api.get<ChartCategoryItem[]>('/dashboard/chart-categories'),
-      api.get<ChartEvolutionItem[]>('/dashboard/chart-evolution?meses=6'),
+      api.get<ChartCategoriesResponse>('/dashboard/chart-categories'),
+      api.get<ChartEvolutionResponse>('/dashboard/chart-evolution?meses=6'),
       api.get<Projection>('/dashboard/projection'),
     ])
       .then(([s, c, e, p]) => {
         setSummary(s.data);
-        setCategories(Array.isArray(c.data) ? c.data : []);
-        setEvolution(Array.isArray(e.data) ? e.data : []);
+        setCategories(Array.isArray(c.data?.data) ? c.data.data : []);
+        setEvolution(Array.isArray(e.data?.data) ? e.data.data : []);
         setProjection(p.data);
       })
       .catch(() => {
@@ -87,24 +89,24 @@ export default function DashboardPage() {
     },
     {
       label: 'Entradas do Mês',
-      value: summary?.entradasMes ?? 0,
+      value: summary?.totalEntradasMes ?? 0,
       icon: HiTrendingUp,
       colorText: 'text-green-600',
       colorBg: 'bg-green-50',
     },
     {
       label: 'Saídas do Mês',
-      value: summary?.saidasMes ?? 0,
+      value: summary?.totalSaidasMes ?? 0,
       icon: HiTrendingDown,
       colorText: 'text-red-500',
       colorBg: 'bg-red-50',
     },
     {
       label: 'Resultado do Mês',
-      value: summary?.resultado ?? 0,
+      value: summary?.resultadoMes ?? 0,
       icon: HiCurrencyDollar,
-      colorText: (summary?.resultado ?? 0) >= 0 ? 'text-green-600' : 'text-red-500',
-      colorBg: (summary?.resultado ?? 0) >= 0 ? 'bg-green-50' : 'bg-red-50',
+      colorText: (summary?.resultadoMes ?? 0) >= 0 ? 'text-green-600' : 'text-red-500',
+      colorBg: (summary?.resultadoMes ?? 0) >= 0 ? 'bg-green-50' : 'bg-red-50',
     },
   ];
 
@@ -158,7 +160,7 @@ export default function DashboardPage() {
                     <PieChart>
                       <Pie
                         data={categories}
-                        dataKey="total"
+                        dataKey="valor"
                         nameKey="categoria"
                         innerRadius={45}
                         outerRadius={75}
@@ -254,43 +256,31 @@ export default function DashboardPage() {
                 </p>
                 <p
                   className={`text-3xl font-bold mt-1 ${
-                    projection.saldoProjetado >= 0
+                    projection.saldoProjetadoFimMes >= 0
                       ? 'text-green-600'
                       : 'text-red-500'
                   }`}
                 >
-                  {formatCurrency(projection.saldoProjetado)}
+                  {formatCurrency(projection.saldoProjetadoFimMes)}
                 </p>
               </div>
               <div className="flex gap-6 text-sm">
                 <div>
                   <p className="text-gray-400">Gasto médio/dia</p>
                   <p className="font-semibold text-gray-700">
-                    {formatCurrency(projection.taxaDiariaMedia)}
+                    {formatCurrency(projection.taxaDiariaGasto)}
                   </p>
                 </div>
                 <div>
                   <p className="text-gray-400">Dias restantes</p>
                   <p className="font-semibold text-gray-700">
-                    {projection.diasRestantesMes} dias
+                    {projection.diasRestantes} dias
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Tendência</p>
-                  <p
-                    className={`font-semibold ${
-                      projection.tendencia === 'positiva'
-                        ? 'text-green-600'
-                        : projection.tendencia === 'negativa'
-                        ? 'text-red-500'
-                        : 'text-gray-600'
-                    }`}
-                  >
-                    {projection.tendencia === 'positiva'
-                      ? '📈 Positiva'
-                      : projection.tendencia === 'negativa'
-                      ? '📉 Negativa'
-                      : '➡️ Estável'}
+                  <p className="text-gray-400">Gasto previsto</p>
+                  <p className="font-semibold text-gray-700">
+                    {formatCurrency(Math.abs(projection.diferenca))}
                   </p>
                 </div>
               </div>

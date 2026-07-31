@@ -85,30 +85,43 @@ export interface Goal {
 
 export interface DashboardSummary {
   saldoConsolidado: number;
-  entradasMes: number;
-  saidasMes: number;
-  resultado: number;
+  totalEntradasMes: number;
+  totalSaidasMes: number;
+  resultadoMes: number;
   alertasNaoLidos: number;
 }
 
 export interface ChartCategoryItem {
   categoria: string;
-  total: number;
+  valor: number;
   percentual: number;
-  cor?: string;
+  cor?: string | null;
+}
+
+export interface ChartCategoriesResponse {
+  data: ChartCategoryItem[];
+  total: number;
 }
 
 export interface ChartEvolutionItem {
   mes: string;
+  mesNumero: number;
+  ano: number;
   receitas: number;
   despesas: number;
+  saldo: number;
+}
+
+export interface ChartEvolutionResponse {
+  data: ChartEvolutionItem[];
 }
 
 export interface Projection {
-  saldoProjetado: number;
-  taxaDiariaMedia: number;
-  diasRestantesMes: number;
-  tendencia: 'positiva' | 'negativa' | 'estavel';
+  saldoAtual: number;
+  saldoProjetadoFimMes: number;
+  diferenca: number;
+  diasRestantes: number;
+  taxaDiariaGasto: number;
 }
 
 export interface PaginatedResponse<T> {
