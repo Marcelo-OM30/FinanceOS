@@ -169,9 +169,17 @@ App roda em: `http://localhost:3001`
 
 ## 📖 Documentação
 
+Documentação do que existe hoje:
+
+- [Especificação Funcional](./docs/especificacoes/especificacao-funcional.md) — o que cada módulo faz e onde estão as lacunas
+- [Contrato da API](./docs/especificacoes/contrato-api.md) — endpoints, DTOs e formatos de resposta
+- [Modelo de Dados](./docs/especificacoes/modelo-de-dados.md) — tabelas, relações e colunas mortas
+- [Arquitetura Técnica](./docs/arquitetura/arquitetura-tecnica.md) — stack, deploy no Railway, riscos
+
+Visão de produto (março/2026, ainda não implementada por inteiro):
+
 - [Planejamento do Projeto](./docs/planejamento19032026.md)
-- [Especificação Modo Pessoa Física](./docs/especificacoes/MODO_PESSOA_FISICA.md)
-- [Arquitetura](./docs/arquitetura/) (em breve)
+- [Sessão 22/04/2026](./docs/sessao-22042026.md) — notas do MVP de frontend
 
 ---
 
