@@ -12,6 +12,18 @@ como `REMOVED` desde 31/07/2026. O volume `postgres-volume` sobreviveu intacto
 (112MB, status Ready) e os dados estavam lá — **por sorte, não por desenho**. Se
 a remoção tivesse levado o volume junto, não haveria nada para recuperar.
 
+A causa era o **trial do Railway expirado**. O `railway usage` não mostra isso
+(reportava uso normal, sem limite excedido); a mensagem só aparece ao tentar um
+deploy: `Your trial has expired. Please select a plan to continue using Railway.`
+Segundo a [documentação do Railway](https://docs.railway.com/pricing/free-trial),
+volumes de contas em trial são **apagados 30 dias após a expiração** — o app
+ficou 5 semanas fora do ar e os dados foram recuperados dentro dessa janela.
+Resolvido com a migração para o plano Hobby em 03/09/2026.
+
+**Primeiro backup verificado em 03/09/2026:** 32KB, 11 tabelas, conferido linha
+a linha contra a produção (`users` 1, `accounts` 2, `categories` 15,
+`transactions` 14 — idênticos ao banco).
+
 ## Fazer backup
 
 ```bash
@@ -39,21 +51,54 @@ Três detalhes que não são óbvios e estão tratados no script:
    fora é preciso a `DATABASE_PUBLIC_URL` (`*.proxy.rlwy.net`), que exige o
    proxy TCP público habilitado no serviço Postgres.
 2. **`pg_dump` mais antigo que o servidor se recusa a rodar.** O servidor é
-   **Postgres 18** (`ghcr.io/railwayapp-templates/postgres-ssl:18`); o cliente
-   que vem no Ubuntu 24.04 é o 16, e ele **não serve**. Instale o 18:
-
-   ```bash
-   sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-   curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
-   sudo apt update && sudo apt install postgresql-client-18
-   ```
-
-   O script compara as versões antes de tentar e para com essa instrução.
+   **Postgres 18** (`ghcr.io/railwayapp-templates/postgres-ssl:18`) e o cliente
+   que vem no Ubuntu 24.04 é o 16 — ele não serve. Ver "Instalar o cliente
+   Postgres" abaixo. O script compara as versões antes de tentar e para com uma
+   mensagem clara em vez de gerar um arquivo pela metade.
 3. **Arquivo criado não é backup.** Só é backup se der para ler de volta — por
    isso a verificação com `pg_restore --list`, que descarta o arquivo se ele
    não tiver nenhuma tabela com dados.
 
 O script nunca imprime a URL de conexão: o log mostra só o host mascarado.
+
+## Instalar o cliente Postgres
+
+O script procura o `pg_dump` mais novo disponível, nesta ordem: `$PG_BIN_DIR`,
+`~/.local/pg*/usr/lib/postgresql/*/bin`, `/usr/lib/postgresql/*/bin`, e por fim
+o do `PATH`. Basta que exista um cliente >= à versão do servidor em algum deles.
+
+**Sem root** (é o que está instalado nesta máquina, em `~/.local/pg18`):
+
+```bash
+cd /tmp
+BASE=https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-18
+curl -sSO $BASE/libpq5_18.6-1.pgdg24.04+2_amd64.deb
+curl -sSO $BASE/postgresql-client-18_18.6-1.pgdg24.04+2_amd64.deb
+mkdir -p ~/.local/pg18
+dpkg -x libpq5_18.6-1.pgdg24.04+2_amd64.deb           ~/.local/pg18
+dpkg -x postgresql-client-18_18.6-1.pgdg24.04+2_amd64.deb ~/.local/pg18
+~/.local/pg18/usr/lib/postgresql/18/bin/pg_dump --version   # deve dizer 18.x
+```
+
+`dpkg -x` só extrai, não instala: nada é registrado no sistema e não precisa de
+senha. As demais dependências (`libc6`, `libssl3t64`, `liblz4-1`,
+`libreadline8t64`) já vêm no Ubuntu 24.04; o script exporta o `LD_LIBRARY_PATH`
+sozinho para o binário achar a própria `libpq`.
+
+Para descobrir os nomes exatos dos `.deb` de outra versão:
+
+```bash
+curl -s https://apt.postgresql.org/pub/repos/apt/dists/$(lsb_release -cs)-pgdg/main/binary-amd64/Packages.gz \
+  | zcat | grep -A20 '^Package: postgresql-client-18$' | grep '^Filename:'
+```
+
+**Com root**, se preferir instalar no sistema:
+
+```bash
+sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+sudo apt update && sudo apt install postgresql-client-18
+```
 
 ## Restaurar
 

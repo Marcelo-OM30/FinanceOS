@@ -27,9 +27,34 @@ CHECK_ONLY=false
 log()  { printf '%s  %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 fail() { printf '%s  ERRO: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; exit 1; }
 
-for bin in pg_dump pg_restore python3; do
-  command -v "$bin" >/dev/null 2>&1 || fail "$bin não encontrado. Instale: sudo apt install postgresql-client"
+command -v python3 >/dev/null 2>&1 || fail "python3 não encontrado"
+
+# ── 0. Localizar o cliente Postgres mais novo disponível ─────────────────────
+# O cliente precisa ser da mesma versão do servidor ou mais novo — pg_dump se
+# recusa a fazer dump de um servidor mais novo que ele. O cliente que vem no
+# Ubuntu costuma ficar atrás do servidor gerenciado, por isso a busca aqui
+# aceita uma instalação local, sem root (ver docs/arquitetura/backup-restore.md).
+PG_BIN=""
+BEST=0
+for dir in ${PG_BIN_DIR:+"$PG_BIN_DIR"} \
+           "$HOME"/.local/pg*/usr/lib/postgresql/*/bin \
+           /usr/lib/postgresql/*/bin; do
+  [[ -x "$dir/pg_dump" ]] || continue
+  ver="$("$dir/pg_dump" --version 2>/dev/null | grep -oE '[0-9]+' | head -1)" || continue
+  if [[ -n "$ver" ]] && (( ver > BEST )); then BEST="$ver"; PG_BIN="$dir"; fi
 done
+
+if [[ -n "$PG_BIN" ]]; then
+  # Binário extraído fora do sistema precisa achar a própria libpq.
+  ROOT="${PG_BIN%/usr/lib/postgresql/*}"
+  if [[ -d "$ROOT/usr/lib/x86_64-linux-gnu" ]]; then
+    export LD_LIBRARY_PATH="$ROOT/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  fi
+  PG_DUMP="$PG_BIN/pg_dump"; PG_RESTORE="$PG_BIN/pg_restore"; PSQL="$PG_BIN/psql"
+else
+  command -v pg_dump >/dev/null 2>&1 || fail "nenhum pg_dump encontrado. Ver docs/arquitetura/backup-restore.md"
+  PG_DUMP=pg_dump; PG_RESTORE=pg_restore; PSQL=psql
+fi
 
 # ── 1. Descobrir a URL de conexão ────────────────────────────────────────────
 # É preciso a URL PÚBLICA (proxy.rlwy.net). A DATABASE_URL interna aponta para
@@ -62,17 +87,15 @@ HOST_MASC="$(printf '%s' "$DB_URL" | sed -E 's#^.*@([^:/]+).*$#\1#')"
 log "alvo: $HOST_MASC"
 
 # ── 2. Testar a conexão e comparar versões ───────────────────────────────────
-SERVER_VER="$(psql "$DB_URL" -tAc 'SHOW server_version;' 2>/dev/null | cut -d. -f1)" \
+SERVER_VER="$("$PSQL" "$DB_URL" -tAc 'SHOW server_version;' 2>/dev/null | cut -d. -f1)" \
   || fail "não consegui conectar. Postgres está no ar? Há proxy TCP público habilitado?"
-CLIENT_VER="$(pg_dump --version | grep -oE '[0-9]+' | head -1)"
-log "servidor Postgres $SERVER_VER, pg_dump $CLIENT_VER"
+CLIENT_VER="$("$PG_DUMP" --version | grep -oE '[0-9]+' | head -1)"
+log "servidor Postgres $SERVER_VER, pg_dump $CLIENT_VER ($PG_DUMP)"
 
 if (( SERVER_VER > CLIENT_VER )); then
   fail "pg_dump ($CLIENT_VER) é mais antigo que o servidor ($SERVER_VER) e vai se recusar a rodar.
-       Instale o cliente correspondente:
-         sudo sh -c 'echo \"deb https://apt.postgresql.org/pub/repos/apt \$(lsb_release -cs)-pgdg main\" > /etc/apt/sources.list.d/pgdg.list'
-         curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
-         sudo apt update && sudo apt install postgresql-client-$SERVER_VER"
+       Instale o cliente $SERVER_VER — ver docs/arquitetura/backup-restore.md, seção
+       'Instalar o cliente Postgres'. Não precisa de root."
 fi
 
 if $CHECK_ONLY; then
@@ -87,12 +110,12 @@ OUT="$DEST/financeos-$STAMP.dump"
 
 log "gerando dump em $OUT"
 # -Fc = formato custom: comprimido, e restaurável seletivamente com pg_restore.
-pg_dump --format=custom --no-owner --no-privileges --file="$OUT" "$DB_URL" \
+"$PG_DUMP" --format=custom --no-owner --no-privileges --file="$OUT" "$DB_URL" \
   || { rm -f "$OUT"; fail "pg_dump falhou"; }
 
 # ── 4. Verificar que o dump presta ───────────────────────────────────────────
 # Um arquivo criado não é um backup: só é backup se der para ler de volta.
-TABELAS="$(pg_restore --list "$OUT" 2>/dev/null | grep -c 'TABLE DATA' || true)"
+TABELAS="$("$PG_RESTORE" --list "$OUT" 2>/dev/null | grep -c 'TABLE DATA' || true)"
 [[ "$TABELAS" -gt 0 ]] || { rm -f "$OUT"; fail "dump gerado mas ilegível ou vazio — descartado"; }
 
 TAMANHO="$(du -h "$OUT" | cut -f1)"
