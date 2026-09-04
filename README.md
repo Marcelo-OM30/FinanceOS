@@ -54,7 +54,8 @@ inteligenciaFinanceira/
 ├── docs/
 │   ├── planejamento19032026.md      # Planejamento geral
 │   ├── especificacoes/
-│   │   └── MODO_PESSOA_FISICA.md    # Spec funcional detalhada
+│   │   ├── MODO_PESSOA_FISICA.md    # Spec funcional detalhada
+│   │   └── spec-orcamento-parcelas-investimentos.md  # O que vem a seguir
 │   └── arquitetura/
 │       └── (diagramas em breve)
 │
@@ -175,6 +176,10 @@ Documentação do que existe hoje:
 - [Contrato da API](./docs/especificacoes/contrato-api.md) — endpoints, DTOs e formatos de resposta
 - [Modelo de Dados](./docs/especificacoes/modelo-de-dados.md) — tabelas, relações e colunas mortas
 - [Arquitetura Técnica](./docs/arquitetura/arquitetura-tecnica.md) — stack, deploy no Railway, riscos
+
+Especificação do que vem a seguir (03/09/2026, nada implementado):
+
+- [Orçamento, Compromissos Futuros e Investimentos](./docs/especificacoes/spec-orcamento-parcelas-investimentos.md) — orçamento derivado do histórico, parcelas, fatura de cartão, recorrências e carteira de investimentos
 
 Visão de produto (março/2026, ainda não implementada por inteiro):
 

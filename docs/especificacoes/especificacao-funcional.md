@@ -200,3 +200,9 @@ interface — e, como visto em §8, o timezone não é usado nem internamente.
 7. Chave de criptografia com default hardcoded (§10)
 8. Saldo por efeito colateral, sem reconciliação (§3)
 9. Cálculos de mês em UTC, ignorando o timezone do usuário (§8)
+
+---
+
+> As lacunas 4 (recorrência não gera transações futuras) e 6, mais a ausência de
+> parcelamento, fatura de cartão e investimentos, são endereçadas em
+> [`spec-orcamento-parcelas-investimentos.md`](./spec-orcamento-parcelas-investimentos.md).
