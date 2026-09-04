@@ -50,3 +50,7 @@ tmp/
 temp/
 *.tmp
 
+
+# Backups locais do banco
+backups/
+*.dump
