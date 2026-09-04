@@ -38,8 +38,17 @@ Três detalhes que não são óbvios e estão tratados no script:
    `postgres.railway.internal`, que só resolve dentro da rede do Railway. De
    fora é preciso a `DATABASE_PUBLIC_URL` (`*.proxy.rlwy.net`), que exige o
    proxy TCP público habilitado no serviço Postgres.
-2. **`pg_dump` mais antigo que o servidor se recusa a rodar.** O script compara
-   as versões antes e, se faltar, imprime o `apt install` do cliente certo.
+2. **`pg_dump` mais antigo que o servidor se recusa a rodar.** O servidor é
+   **Postgres 18** (`ghcr.io/railwayapp-templates/postgres-ssl:18`); o cliente
+   que vem no Ubuntu 24.04 é o 16, e ele **não serve**. Instale o 18:
+
+   ```bash
+   sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+   curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+   sudo apt update && sudo apt install postgresql-client-18
+   ```
+
+   O script compara as versões antes de tentar e para com essa instrução.
 3. **Arquivo criado não é backup.** Só é backup se der para ler de volta — por
    isso a verificação com `pg_restore --list`, que descarta o arquivo se ele
    não tiver nenhuma tabela com dados.
