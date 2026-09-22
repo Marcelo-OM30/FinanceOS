@@ -2,6 +2,7 @@ import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -25,9 +26,9 @@ export class AuthController {
     }
   }
 
+  // Erro aqui é 401, não 400: é o sinal para o frontend mandar a pessoa ao login.
   @Post('refresh')
-  async refresh(@Body() body: { refreshToken: string }) {
-    // TODO: Implementar refresh token logic
-    return { message: 'Refresh endpoint not implemented yet' };
+  async refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto.refreshToken);
   }
 }

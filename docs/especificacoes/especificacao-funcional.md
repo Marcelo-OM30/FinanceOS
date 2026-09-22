@@ -31,10 +31,18 @@ gravados no banco — algo a considerar antes de qualquer internacionalização.
 O token é guardado em `localStorage` (chave `finance-os-auth`, via Zustand
 persist) e injetado pelo interceptor do Axios como `Authorization: Bearer`.
 
-**Lacuna crítica:** o endpoint `POST /auth/refresh` existe e funciona, mas
-**nenhum código do frontend o chama**. O interceptor de resposta trata 401
-apagando o `localStorage` e redirecionando para `/login`. Na prática, **a sessão
-cai a cada 15 minutos de uso** e o `refreshToken` guardado nunca serve para nada.
+**Renovação da sessão:** quando uma requisição volta 401, o interceptor de
+resposta (`frontend/lib/api.ts`) chama `POST /auth/refresh` com o
+`refreshToken`, grava o par novo na store e repete a requisição original. Se
+várias requisições caem juntas (o dashboard dispara 4), todas esperam a mesma
+renovação. Se o refresh falha, ou se a requisição repetida volta 401 de novo, a
+store é limpa e a pessoa vai para `/login`. Cada refresh devolve também um
+`refreshToken` novo, então a sessão só expira depois de **7 dias sem uso**.
+
+O backend recusa access token usado como refresh e vice-versa, porque os
+segredos são diferentes. Por isso `JWT_REFRESH_SECRET` é obrigatório: sem ele o
+`@nestjs/jwt` cairia no `JWT_SECRET` sem avisar, e login e refresh falham com
+erro em vez disso.
 
 **Outras lacunas:** não há recuperação de senha, verificação de e-mail (a coluna
 `emailVerificado` existe e nunca muda), nem logout no servidor — o logout é só
@@ -185,7 +193,7 @@ interface — e, como visto em §8, o timezone não é usado nem internamente.
 
 **Quebra o uso hoje**
 
-1. Sessão expira em 15 min sem refresh (§2)
+1. ~~Sessão expira em 15 min sem refresh (§2)~~ — resolvido em 22/09/2026
 2. Transferência não credita conta destino (§4)
 
 **Funcionalidade prometida que não existe**

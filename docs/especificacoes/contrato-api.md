@@ -47,7 +47,9 @@ frontend precisa desembrulhar caso a caso.
 | POST | `/auth/refresh` | `{ refreshToken }` | idem acima |
 
 `accessToken` expira em **15 min**; `refreshToken`, em **7 dias** (segredo
-separado, `JWT_REFRESH_SECRET`).
+separado, `JWT_REFRESH_SECRET`). `/auth/refresh` devolve um `refreshToken` novo a
+cada chamada e responde **401** para token inválido, expirado ou de usuário
+removido (login e cadastro respondem 400 nos erros).
 
 ## Transações
 

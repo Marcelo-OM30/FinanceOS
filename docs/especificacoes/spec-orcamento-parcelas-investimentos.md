@@ -22,7 +22,7 @@ parte desta spec, mas precisam vir antes:
 | # | Item | Por que bloqueia |
 |---|---|---|
 | 1 | **Timezone ignorado** (§8) — todo cálculo de mês usa o relógio do servidor em UTC | Parcela, vencimento, fechamento de fatura e fronteira de mês do orçamento são todos datados. Entre 21h e meia-noite no Brasil o servidor já virou o dia; no último dia do mês, virou o mês. Uma parcela cai na fatura errada e o orçamento fecha no dia errado. Construir projeção sobre esse bug é construir sobre areia |
-| 2 | **Sessão cai a cada 15 min** (§2) — o frontend nunca chama `POST /auth/refresh` | Cadastrar uma compra em 12x, revisar 15 sugestões de orçamento ou lançar uma carteira de investimentos são fluxos longos. Perder a sessão no meio deles é inviável |
+| 2 | ~~**Sessão cai a cada 15 min**~~ — **resolvido em 22/09/2026** (§2) | Cadastrar uma compra em 12x, revisar 15 sugestões de orçamento ou lançar uma carteira de investimentos são fluxos longos. Perder a sessão no meio deles é inviável |
 
 Recomendação operacional adicional: **configurar backup do Postgres antes da Fase 1**
 (ver `project-railway-deploy-pendencias`). Tudo nesta spec multiplica o volume de dados
