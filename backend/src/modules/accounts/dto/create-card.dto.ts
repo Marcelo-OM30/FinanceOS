@@ -8,8 +8,6 @@ import {
   MaxLength,
   Min,
   Max,
-  MinLength,
-  MaxLength as MaxLen,
   Matches,
 } from 'class-validator';
 
@@ -21,11 +19,11 @@ export class CreateCardDto {
   @MaxLength(255)
   nome: string;
 
-  @IsString()
-  @MinLength(13)
-  @MaxLength(19)
-  @Matches(/^\d+$/, { message: 'numero deve conter apenas dígitos' })
-  numero: string;
+  // Só os 4 últimos: para controlar fatura o número completo não serve para
+  // nada e seria o dado mais sensível do banco.
+  @IsOptional()
+  @Matches(/^\d{4}$/, { message: 'ultimosDigitos deve ter exatamente 4 dígitos' })
+  ultimosDigitos?: string;
 
   @IsIn(['débito', 'crédito', 'pré-pago'])
   tipo: string;

@@ -12,6 +12,7 @@ import { Account } from '../../accounts/entities/account.entity';
 import { Card } from '../../accounts/entities/card.entity';
 import { Category } from '../../categories/entities/category.entity';
 import { InstallmentPurchase } from '../../installments/entities/installment-purchase.entity';
+import { CardInvoice } from '../../card-invoices/entities/card-invoice.entity';
 
 @Entity('transactions')
 @Index(['userId', 'data'])
@@ -20,6 +21,7 @@ import { InstallmentPurchase } from '../../installments/entities/installment-pur
 @Index(['accountId'])
 @Index(['contaDestinoId'])
 @Index(['installmentPurchaseId'])
+@Index(['cardInvoiceId'])
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -30,8 +32,14 @@ export class Transaction {
   @Column('uuid')
   accountId!: string;
 
+  // Compra no cartão de crédito: não mexe no saldo; fica prevista até a fatura
+  // (cardInvoiceId) ser paga. `data` é o vencimento da fatura e
+  // `dataCompetencia`, o dia da compra.
   @Column('uuid', { nullable: true })
-  cardId?: string;
+  cardId?: string | null;
+
+  @Column('uuid', { nullable: true })
+  cardInvoiceId?: string | null;
 
   // Só em transferência: a conta que recebe o valor. Transferências gravadas
   // antes desta coluna existir ficam com null e só debitam a origem.
@@ -114,6 +122,9 @@ export class Transaction {
 
   @ManyToOne(() => InstallmentPurchase, (p) => p.parcelas, { nullable: true, onDelete: 'CASCADE' })
   installmentPurchase?: InstallmentPurchase;
+
+  @ManyToOne(() => CardInvoice, (f) => f.transacoes, { nullable: true, onDelete: 'SET NULL' })
+  cardInvoice?: CardInvoice;
 
   @ManyToOne(() => Category, (category) => category.transactions, { nullable: true, onDelete: 'SET NULL' })
   category?: Category;

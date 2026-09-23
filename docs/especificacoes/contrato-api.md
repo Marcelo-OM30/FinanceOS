@@ -30,7 +30,7 @@ Três formatos convivem. Confira qual antes de consumir:
 | Formato | Endpoints |
 |---|---|
 | Array puro `[...]` | `GET /accounts`, `/cards`, `/categories`, `/budgets`, `/goals`, `/alerts` |
-| Objeto embrulhado `{ data: [...], ... }` | `GET /transactions`, `/installments`, `/dashboard/chart-categories`, `/dashboard/chart-evolution` |
+| Objeto embrulhado `{ data: [...], ... }` | `GET /transactions`, `/installments`, `/card-invoices`, `/dashboard/chart-categories`, `/dashboard/chart-evolution` |
 | Objeto simples | `/dashboard/summary`, `/dashboard/projection`, `/users/profile`, e todo `GET/POST/PATCH` de item único |
 
 Uniformizar isso é uma dívida técnica conhecida. Enquanto não for feito, o
@@ -97,7 +97,7 @@ Cada item traz `account`, `contaDestino` (null fora de transferência), `categor
 
 | Método | Rota | Observação |
 |---|---|---|
-| GET | `/installments` | `{ data: [...] }` ← **embrulhada**. Query `status` (`ativa` \| `quitada` \| `cancelada`) |
+| GET | `/installments` | `{ data: [...] }` ← **embrulhada**. Query `status` (`ativa` \| `quitada` \| `cancelada`). Itens com `cardId` quando no cartão |
 | GET | `/installments/:id` | inclui `parcelas: Transaction[]`, ordenadas por `numeroParcela` |
 | POST | `/installments` | cria a compra e todas as parcelas; devolve como o GET de item |
 | PATCH | `/installments/:id` | **só** `descricao` e `categoryId` (propaga para as parcelas) |
@@ -105,8 +105,8 @@ Cada item traz `account`, `contaDestino` (null fora de transferência), `categor
 
 **Body de `POST /installments`:** `descricao` (máx. 240), `valorTotal` (mín.
 0.02, 2 casas), `numeroParcelas` (2 a 120), `dataCompra`, `primeiroVencimento`
-(não antes da compra), `accountId`, `categoryId?`. Não aceita `cardId` ainda
-(Fase 3). 400 se sobrar menos de um centavo por parcela.
+(não antes da compra), `accountId`, `categoryId?` — ou `cardId` no lugar de
+`accountId` e `primeiroVencimento`. 400 se sobrar menos de um centavo por parcela.
 
 **Cada item:** colunas da tabela — `valorTotal` e `valorParcela` chegam como
 **texto** (decimal) — mais os calculados, já numéricos: `parcelasPagas`,
@@ -174,8 +174,38 @@ quando há receita agendada.
 `POST /accounts`: `nome` e `tipo` obrigatórios; opcionais `banco`, `agencia`,
 `numeroConta`, `saldoInicial`, `moeda`, `dataAbertura`, `cor`.
 
-`POST /cards` recebe `numero` em claro e grava criptografado; a resposta expõe
-apenas `ultimosDigitos`.
+`POST /cards`: `accountId`, `nome`, `tipo` (`crédito` \| `débito` \|
+`pré-pago`), opcionais `ultimosDigitos` (exatamente 4 dígitos), `bandeira`,
+`limite`, `dataFechamentoFatura` e `vencimentoFatura` (1 a 28). **Não aceita
+`numero`** desde 23/09/2026 (400). `DELETE` dá 409 se o cartão tem compras —
+desative com `PATCH { ativo: false }`. `PATCH` não muda `tipo` de cartão com
+compras.
+
+### Faturas
+
+| Método | Rota | Observação |
+|---|---|---|
+| GET | `/card-invoices` | `{ data: [...] }` ← **embrulhada**, mais recente primeiro. Query `cardId` |
+| GET | `/card-invoices/:id` | inclui `transacoes` (com `category`), por data da compra |
+| POST | `/card-invoices/:id/pagar` | `{ accountId, data? }` (padrão hoje). Sempre o total. 409 se já paga; 400 se vazia |
+| POST | `/card-invoices/:id/desfazer-pagamento` | 409 se não está paga |
+
+Não há POST de fatura: ela nasce com a primeira compra. Cada fatura: `mes`,
+`ano` (do fechamento), `dataFechamento`, `dataVencimento`, `valorTotal`
+(**texto**), `status` (`aberta` \| `fechada` \| `paga` — `fechada` é calculado:
+aberta com o fechamento já passado), `pagamentoTransactionId`, `card`.
+
+**Compra no cartão via `POST /transactions`:** mande `cardId` (cartão de
+crédito) com `tipo: 'despesa'`; `data` é o **dia da compra**. A resposta volta
+com `data` = vencimento da fatura, `dataCompetencia` = dia da compra,
+`confirmada: false`, `cardInvoiceId` e `accountId` = conta do cartão.
+`confirmada: true` no payload dá 400. `confirmar`/`desconfirmar` dão 409. `PATCH`
+que mexa em `tipo`, `data`, `dataCompetencia`, `accountId`, `cardId` ou
+`contaDestinoId` dá 400; `valor` com a fatura paga, 409. O pagamento da fatura
+(uma transferência sem destino) dá 409 em `PATCH` e `DELETE`.
+
+`POST /installments` aceita `cardId` no lugar de `accountId` e
+`primeiroVencimento`.
 
 ## Categorias
 

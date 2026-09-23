@@ -7,11 +7,14 @@ import { Account } from '../accounts/entities/account.entity';
 
 export type EfeitoInput = Pick<
   Transaction,
-  'tipo' | 'valor' | 'accountId' | 'contaDestinoId' | 'confirmada'
+  'tipo' | 'valor' | 'accountId' | 'contaDestinoId' | 'confirmada' | 'cardId'
 >;
 
 /**
- * Quanto o saldo de cada conta muda por causa desta transação. Prevista
+ * Quanto o saldo de cada conta muda por causa desta transação. Compra no
+ * cartão (`cardId`) nunca muda: o dinheiro sai da conta no pagamento da
+ * fatura, que é uma transação própria — senão a compra contaria duas vezes.
+ * Prevista
  * (`confirmada = false`) não muda nada: como create, update e remove sempre
  * desfazem o efeito antigo e aplicam o novo, confirmar e desconfirmar são só
  * uma edição de `confirmada`. Transferência tira da origem e põe no destino,
@@ -19,7 +22,7 @@ export type EfeitoInput = Pick<
  * destino, só tiram da origem — que é exatamente o que fizeram ao ser criadas.
  */
 export function efeitoNoSaldo(t: EfeitoInput): Array<[string, number]> {
-  if (!t.confirmada) return [];
+  if (!t.confirmada || t.cardId) return [];
   const valor = Number(t.valor);
   if (t.tipo === 'receita') return [[t.accountId, valor]];
   if (t.tipo === 'transferência' && t.contaDestinoId) {

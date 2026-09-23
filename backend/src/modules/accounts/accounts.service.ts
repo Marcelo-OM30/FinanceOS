@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
 import { Account } from './entities/account.entity';
 import { Card } from './entities/card.entity';
+import { Transaction } from '../transactions/entities/transaction.entity';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { CreateCardDto } from './dto/create-card.dto';
@@ -50,6 +51,8 @@ export class AccountsService {
     private accountsRepository: Repository<Account>,
     @InjectRepository(Card)
     private cardsRepository: Repository<Card>,
+    @InjectRepository(Transaction)
+    private transactionsRepository: Repository<Transaction>,
   ) {
     this.encryptionKey = scryptSync(chaveDeCriptografia(), 'salt', 32);
   }
@@ -136,15 +139,12 @@ export class AccountsService {
     // Verifica que a conta pertence ao usuário
     await this.findOneAccount(dto.accountId, userId);
 
-    const ultimosDigitos = dto.numero.slice(-4);
-    const numeroCriptografado = this.encrypt(dto.numero);
-
     const card = this.cardsRepository.create({
       userId,
       accountId: dto.accountId,
       nome: dto.nome,
-      numeroCriptografado,
-      ultimosDigitos,
+      numeroCriptografado: null,
+      ultimosDigitos: dto.ultimosDigitos,
       tipo: dto.tipo,
       bandeira: dto.bandeira,
       limite: dto.limite,
@@ -159,13 +159,29 @@ export class AccountsService {
 
   async updateCard(id: string, userId: string, dto: UpdateCardDto): Promise<Card> {
     const card = await this.findOneCard(id, userId);
+    if (dto.tipo && dto.tipo !== card.tipo && (await this.temCompras(id))) {
+      throw new ConflictException('Cartão com compras não pode mudar de tipo');
+    }
+    // Mudar fechamento ou vencimento vale para as faturas que ainda vão nascer;
+    // as existentes guardam as próprias datas.
     Object.assign(card, dto);
     return this.cardsRepository.save(card);
   }
 
+  /**
+   * Excluir levaria junto as faturas, e as compras perderiam o cartão — e com
+   * ele a regra que as impede de mexer no saldo. Com histórico, desative.
+   */
   async removeCard(id: string, userId: string): Promise<void> {
     const card = await this.findOneCard(id, userId);
+    if (await this.temCompras(id)) {
+      throw new ConflictException('Cartão com compras não pode ser excluído; desative-o');
+    }
     await this.cardsRepository.remove(card);
+  }
+
+  private async temCompras(cardId: string): Promise<boolean> {
+    return (await this.transactionsRepository.count({ where: { cardId } })) > 0;
   }
 
   // ─── Encryption helpers ──────────────────────────────────────────────────────

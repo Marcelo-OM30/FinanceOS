@@ -60,11 +60,25 @@ erDiagram
 | Coluna | Tipo | Notas |
 |---|---|---|
 | `userId`, `accountId` | uuid | FK |
-| `numeroCriptografado` | varchar | AES-256-CBC, chave em `CARD_ENCRYPTION_KEY` |
-| `ultimosDigitos` | varchar(4) | único trecho em claro |
-| `tipo`, `bandeira` | varchar | `credito` \| `debito` |
+| `numeroCriptografado` | varchar nullable | legado (AES-256-CBC, `CARD_ENCRYPTION_KEY`); cartões desde 23/09/2026 não têm |
+| `ultimosDigitos` | varchar(4) | |
+| `tipo` | varchar | `crédito` \| `débito` \| `pré-pago`; só crédito recebe compras |
+| `bandeira` | varchar | |
 | `limite`, `limiteUtilizado` | numeric(15,2) | `limiteUtilizado` **nunca é atualizado** |
-| `vencimentoFatura`, `dataFechamentoFatura` | int | dia do mês |
+| `vencimentoFatura`, `dataFechamentoFatura` | int | dia do mês (1 a 28) |
+
+## card_invoices
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `userId`, `cardId` | uuid | `ON DELETE CASCADE` |
+| `mes`, `ano` | int | do fechamento; único por cartão |
+| `dataFechamento`, `dataVencimento` | date | calculadas do cartão ao nascer |
+| `valorTotal` | numeric(15,2) | soma das compras, recalculada a cada mudança |
+| `status` | varchar(20) | `aberta` \| `paga` (`fechada` é derivado na leitura) |
+| `pagamentoTransactionId` | uuid | a transferência que pagou, `ON DELETE SET NULL` |
+
+Índice único `['cardId','mes','ano']`.
 
 ## categories
 
@@ -103,9 +117,14 @@ visíveis na mesma lista.
 
 | `installmentPurchaseId` | uuid | parcela de um parcelamento, `ON DELETE CASCADE` |
 | `numeroParcela` | int | 1..N, só em parcela |
+| `cardInvoiceId` | uuid | fatura da compra no cartão, `ON DELETE SET NULL` |
 
 Índices: `['userId','data']`, `['userId','confirmada','data']`, `['categoryId']`,
-`['accountId']`, `['contaDestinoId']`, `['installmentPurchaseId']`.
+`['accountId']`, `['contaDestinoId']`, `['installmentPurchaseId']`, `['cardInvoiceId']`.
+
+`cardId` preenchido = compra no cartão: não mexe no saldo. A migration
+`FaturasDeCartao` zerou o `cardId` das transações anteriores, que já tinham
+debitado a conta.
 
 ## installment_purchases
 

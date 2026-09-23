@@ -11,7 +11,7 @@ import Spinner from '@/components/ui/Spinner';
 import api from '@/lib/api';
 import { formatCurrency, formatDate, todayISO } from '@/lib/format';
 import { useForm } from 'react-hook-form';
-import type { Transaction, Category, Account, PaginatedResponse } from '@/types';
+import type { Transaction, Category, Account, Card as CreditCard, PaginatedResponse } from '@/types';
 import {
   HiPlus,
   HiChevronLeft,
@@ -27,6 +27,7 @@ interface TransactionForm {
   data: string;
   accountId: string;
   contaDestinoId: string;
+  cardId: string;
   categoryId: string;
   recorrente: boolean;
   confirmada: boolean;
@@ -52,6 +53,7 @@ export default function TransactionsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [cards, setCards] = useState<CreditCard[]>([]);
   const [filterTipo, setFilterTipo] = useState('');
   const [filterStatus, setFilterStatus] = useState<'' | 'true' | 'false'>('');
   const [submitting, setSubmitting] = useState(false);
@@ -76,6 +78,8 @@ export default function TransactionsPage() {
 
   const tipo = watch('tipo');
   const isTransferencia = tipo === 'transferência';
+  const cardId = watch('cardId');
+  const noCartao = tipo === 'despesa' && !!cardId;
 
   // Data futura sugere "ainda não aconteceu"; o usuário pode desmarcar ou
   // marcar depois. Só reage a mudança de data, não sobrescreve a escolha feita.
@@ -112,9 +116,11 @@ export default function TransactionsPage() {
     Promise.all([
       api.get<Category[]>('/categories'),
       api.get<Account[]>('/accounts'),
-    ]).then(([c, a]) => {
+      api.get<CreditCard[]>('/cards'),
+    ]).then(([c, a, k]) => {
       setCategories(Array.isArray(c.data) ? c.data : []);
       setAccounts(Array.isArray(a.data) ? a.data : []);
+      setCards(Array.isArray(k.data) ? k.data.filter((card) => card.tipo === 'crédito' && card.ativo) : []);
     });
   }, []);
 
@@ -134,16 +140,20 @@ export default function TransactionsPage() {
     try {
       // Campo a campo: o backend recusa qualquer propriedade que não conheça.
       const transferencia = data.tipo === 'transferência';
+      // No cartão: `data` é o dia da compra, a conta é a do cartão e quem
+      // confirma é o pagamento da fatura.
+      const cartao = data.tipo === 'despesa' ? cards.find((c) => c.id === data.cardId) : undefined;
       await api.post('/transactions', {
         descricao: data.descricao,
         tipo: data.tipo,
         data: data.data,
         valor: parseFloat(data.valor),
-        accountId: data.accountId || undefined,
+        accountId: cartao ? cartao.accountId : data.accountId || undefined,
+        cardId: cartao?.id,
         contaDestinoId: transferencia ? data.contaDestinoId : undefined,
         categoryId: transferencia ? undefined : data.categoryId || undefined,
         recorrencia: data.recorrente ? 'mensal' : 'única',
-        confirmada: data.confirmada,
+        confirmada: cartao ? undefined : data.confirmada,
       });
       setModalOpen(false);
       setPage(1);
@@ -286,7 +296,12 @@ export default function TransactionsPage() {
                         {t.descricao}
                         {!t.confirmada && (
                           <span className="ml-2 align-middle">
-                            <Badge variant="warning">Agendada</Badge>
+                            <Badge variant="warning">{t.cardId ? 'Na fatura' : 'Agendada'}</Badge>
+                          </span>
+                        )}
+                        {t.cardId && t.dataCompetencia && (
+                          <span className="block text-xs font-normal text-gray-400">
+                            compra em {formatDate(t.dataCompetencia)} · sai da conta no vencimento da fatura
                           </span>
                         )}
                       </td>
@@ -294,7 +309,7 @@ export default function TransactionsPage() {
                         {t.category?.nome ?? '—'}
                       </td>
                       <td className="hidden lg:table-cell px-4 sm:px-6 py-3.5 text-gray-500">
-                        {t.account?.nome ?? '—'}
+                        {t.card ? `💳 ${t.card.nome}` : t.account?.nome ?? '—'}
                         {t.contaDestino && ` → ${t.contaDestino.nome}`}
                       </td>
                       <td className="hidden sm:table-cell px-4 sm:px-6 py-3.5">
@@ -316,7 +331,7 @@ export default function TransactionsPage() {
                         {formatCurrency(t.valor)}
                       </td>
                       <td className="px-4 sm:px-6 py-3.5 whitespace-nowrap">
-                        {!t.confirmada && (
+                        {!t.confirmada && !t.cardId && (
                           <button
                             onClick={() => handleConfirmar(t.id)}
                             className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors"
@@ -398,7 +413,7 @@ export default function TransactionsPage() {
               })}
             />
             <Input
-              label="Data"
+              label={noCartao ? 'Data da compra' : 'Data'}
               type="date"
               error={errors.data?.message}
               {...register('data', { required: 'Data é obrigatória' })}
@@ -413,12 +428,35 @@ export default function TransactionsPage() {
             ]}
             {...register('tipo', { required: true })}
           />
-          <Select
-            label={isTransferencia ? 'Conta de origem' : 'Conta'}
-            options={accountOptions}
-            error={errors.accountId?.message}
-            {...register('accountId', { required: 'Selecione uma conta' })}
-          />
+          {tipo === 'despesa' && cards.length > 0 && (
+            <Select
+              label="Cartão de crédito"
+              options={[
+                { value: '', label: 'Não — sai direto da conta' },
+                ...cards.map((c) => ({
+                  value: c.id,
+                  label: `${c.nome}${c.ultimosDigitos ? ` •••• ${c.ultimosDigitos}` : ''}`,
+                })),
+              ]}
+              {...register('cardId')}
+            />
+          )}
+          {noCartao ? (
+            <p className="text-xs text-gray-500 -mt-2">
+              Entra na fatura pela data da compra e só sai da conta quando você pagar a fatura,
+              na tela de Cartões.
+            </p>
+          ) : (
+            <Select
+              label={isTransferencia ? 'Conta de origem' : 'Conta'}
+              options={accountOptions}
+              error={errors.accountId?.message}
+              {...register('accountId', {
+                validate: (v, form) =>
+                  (form.tipo === 'despesa' && !!form.cardId) || !!v || 'Selecione uma conta',
+              })}
+            />
+          )}
           {isTransferencia ? (
             <>
               <Select
@@ -444,7 +482,9 @@ export default function TransactionsPage() {
               {...register('categoryId')}
             />
           )}
-          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <label
+            className={`flex items-center gap-2 text-sm text-gray-700 cursor-pointer ${noCartao ? 'hidden' : ''}`}
+          >
             <input
               type="checkbox"
               className="rounded border-gray-300"

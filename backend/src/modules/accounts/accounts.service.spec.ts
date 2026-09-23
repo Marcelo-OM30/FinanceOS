@@ -2,6 +2,7 @@ import { Repository } from 'typeorm';
 import { AccountsService, chaveDeCriptografia } from './accounts.service';
 import { Account } from './entities/account.entity';
 import { Card } from './entities/card.entity';
+import { Transaction } from '../transactions/entities/transaction.entity';
 
 describe('CARD_ENCRYPTION_KEY', () => {
   const original = process.env.CARD_ENCRYPTION_KEY;
@@ -13,6 +14,7 @@ describe('CARD_ENCRYPTION_KEY', () => {
     new AccountsService(
       {} as Repository<Account>,
       {} as Repository<Card>,
+      {} as Repository<Transaction>,
     );
 
   it('impede o boot quando a chave falta', () => {

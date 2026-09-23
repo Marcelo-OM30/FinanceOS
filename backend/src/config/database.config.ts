@@ -7,6 +7,7 @@ import { Card } from '../modules/accounts/entities/card.entity';
 import { Category } from '../modules/categories/entities/category.entity';
 import { Transaction } from '../modules/transactions/entities/transaction.entity';
 import { InstallmentPurchase } from '../modules/installments/entities/installment-purchase.entity';
+import { CardInvoice } from '../modules/card-invoices/entities/card-invoice.entity';
 import { Budget } from '../modules/budgets/entities/budget.entity';
 import { Goal } from '../modules/goals/entities/goal.entity';
 import { GoalProgress } from '../modules/goals/entities/goal-progress.entity';
@@ -26,6 +27,7 @@ export const databaseConfig = (
     Category,
     Transaction,
     InstallmentPurchase,
+    CardInvoice,
     Budget,
     Goal,
     GoalProgress,

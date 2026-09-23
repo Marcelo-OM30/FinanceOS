@@ -33,7 +33,7 @@ reais guardados na aplicação.
 ## 1. O conceito que sustenta tudo: previsto × realizado
 
 > **Implementada em 23/09/2026**, com um desvio: a metade de cartão da regra do
-> §1.2 (`cardId IS NOT NULL` não mexe no saldo) **ficou para a Fase 3**. Aplicá-la
+> §1.2 (`cardId IS NOT NULL` não mexe no saldo) **ficou para a Fase 3** (aplicada lá, em 23/09/2026). Aplicá-la
 > sem fatura faria compra no cartão não afetar saldo nenhum, sem ainda existir
 > como registrar o pagamento. Hoje compra no cartão ainda debita a conta na hora,
 > como antes. Também: a projeção soma previstas até o fim do mês, inclusive as
@@ -238,6 +238,14 @@ ficam de fora. Para corrigir um erro de cadastro, cancele e recadastre.
 
 ## 3. Fatura de cartão
 
+> **Implementada em 23/09/2026**, junto com a metade de cartão da regra do §1.2
+> e o `cardId` no parcelamento. Diferenças: o pagamento é uma **transferência sem
+> destino** (mexe no saldo, fora dos totais), não uma despesa; `status` grava só
+> `aberta`/`paga` e deriva `fechada`; fatura aberta vazia é apagada; há
+> `POST /card-invoices/:id/desfazer-pagamento`; o backfill do §3.4 zera o
+> `cardId` das transações antigas em vez de vinculá-las a faturas; cadastro de
+> cartão passou a aceitar só os 4 últimos dígitos.
+
 Sem isso, gasto no crédito ou some do fluxo de caixa ou é contado duas vezes. É o par
 obrigatório do §2 — parcelamento sem fatura fica pela metade.
 
@@ -287,8 +295,8 @@ sem fatura aberta correspondente, cria-se a fatura.
    afetar o saldo por terem `cardId` preenchido, mas passam a contar como realizadas no
    orçamento
 
-Pagamento parcial (`valor` menor que `valorTotal`): o resíduo é rolado para a próxima
-fatura como uma transação de "saldo anterior". **Decisão em aberto** — ver §7.
+Pagamento parcial é **proibido** (decisão 2 do §7): o body não tem `valor`, e o
+pagamento é sempre do total da fatura.
 
 ### 3.4 Backfill
 
@@ -595,10 +603,10 @@ Precisam de resposta antes da fase correspondente:
 
 | # | Questão | Fase |
 |---|---|---|
-| 1 | Confirmar uma parcela deve ser manual, ou o pagamento da fatura confirma todas de uma vez? A spec assume o segundo (§3.3) | 3 |
-| 2 | Pagamento parcial de fatura: rolar o resíduo para a próxima fatura, ou proibir? A spec assume rolar (§3.3) | 3 |
-| 3 | O pagamento da fatura entra em qual categoria — uma categoria "Cartão de crédito", ou fica sem categoria para não contar duas vezes no orçamento? Recomendação: **sem categoria**, já que as compras individuais já estão categorizadas | 3 |
-| 4 | A janela de sugestão deve ser 6 ou 12 meses? 6 responde mais rápido a mudança de padrão de vida; 12 captura sazonalidade. A spec assume 6, com as esporádicas olhando 12 | 4 |
+| 1 | ~~Confirmar uma parcela deve ser manual, ou o pagamento da fatura confirma todas de uma vez?~~ **Decidido em 23/09/2026: o pagamento confirma todas de uma vez** (§3.3) | 3 |
+| 2 | ~~Pagamento parcial de fatura: rolar ou proibir?~~ **Decidido em 23/09/2026: proibido.** O pagamento é sempre do valor total da fatura (§3.3) | 3 |
+| 3 | ~~Categoria do pagamento da fatura~~ **Decidido em 23/09/2026: sem categoria** — as compras já estão categorizadas | 3 |
+| 4 | ~~Janela de sugestão: 6 ou 12 meses?~~ **Decidido em 23/09/2026: 6 meses**, com as esporádicas olhando 12, como a spec assumia | 4 |
 | 5 | Vale trazer o [Meu Pluggy](https://www.pluggy.ai/meu-pluggy) — Open Finance gratuito por tempo indeterminado para uso pessoal — antes ou depois dos investimentos? Elimina digitação manual, que é o que mata app de finanças pessoais na prática | 6 |
 
 ---
@@ -610,7 +618,7 @@ Precisam de resposta antes da fase correspondente:
 | **0** | ~~Timezone por usuário; refresh de token no frontend; backup do Postgres~~ — concluída em 23/09/2026 | — | sessão não cai; datas corretas |
 | **1** | ~~Previsto × realizado (§1)~~ — concluída em 23/09/2026, exceto a regra de cartão, que foi para a Fase 3: `confirmada` nos cálculos, `dataCompetencia` no orçamento, endpoints de confirmar/desconfirmar | 0 | lançar gasto futuro avulso |
 | **2** | ~~Parcelamento (§2)~~ — concluída em 23/09/2026, sem cartão | 1 | "comprei em 12x" aparece nos próximos 12 meses |
-| **3** | Fatura de cartão (§3) + tela de cartões (hoje inexistente) + regra do §1.2 para `cardId` e backfill do §3.4 + `cardId` no parcelamento | 2 | gasto de crédito no fluxo de caixa certo |
+| **3** | ~~Fatura de cartão (§3) + tela de cartões + regra do §1.2 para `cardId` e backfill do §3.4 + `cardId` no parcelamento~~ — concluída em 23/09/2026 | 2 | gasto de crédito no fluxo de caixa certo |
 | **4** | Orçamento: rollover, campos derivados, sugestões (§5) | 1, 2 | **orçamento montado a partir do histórico** |
 | **5** | Recorrências (§4) + projeção do dashboard usando previstos | 1 | contas fixas entram na projeção |
 | **6** | Investimentos (§6) | — | carteira com preço médio e cotação |

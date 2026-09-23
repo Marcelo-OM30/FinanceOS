@@ -8,6 +8,7 @@ import {
   MaxLength,
   Min,
   Max,
+  Matches,
 } from 'class-validator';
 
 export class UpdateCardDto {
@@ -44,6 +45,10 @@ export class UpdateCardDto {
   @IsOptional()
   @IsBoolean()
   ativo?: boolean;
+
+  @IsOptional()
+  @Matches(/^\d{4}$/, { message: 'ultimosDigitos deve ter exatamente 4 dígitos' })
+  ultimosDigitos?: string;
 
   @IsOptional()
   @IsDateString()

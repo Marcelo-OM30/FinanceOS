@@ -21,13 +21,33 @@ export interface Account {
 export interface Card {
   id: string;
   nome: string;
-  bandeira: string;
-  ultimosDigitos: string;
-  tipo: 'credito' | 'debito';
-  limite?: number;
-  vencimento?: number;
+  bandeira?: string | null;
+  ultimosDigitos?: string | null;
+  tipo: 'crédito' | 'débito' | 'pré-pago';
+  // decimal: chega como texto.
+  limite?: string | null;
+  // Dias do mês (1 a 28).
+  dataFechamentoFatura?: number | null;
+  vencimentoFatura?: number | null;
   accountId: string;
   ativo: boolean;
+}
+
+export interface CardInvoice {
+  id: string;
+  cardId: string;
+  card?: Card;
+  mes: number;
+  ano: number;
+  dataFechamento: string;
+  dataVencimento: string;
+  // decimal: chega como texto.
+  valorTotal: string;
+  // 'fechada' é calculado na leitura: aberta com o fechamento já passado.
+  status: 'aberta' | 'fechada' | 'paga';
+  pagamentoTransactionId?: string | null;
+  // Só em GET /card-invoices/:id.
+  transacoes?: Transaction[];
 }
 
 export interface Category {
@@ -51,6 +71,9 @@ export interface Transaction {
   confirmada: boolean;
   installmentPurchaseId?: string | null;
   numeroParcela?: number | null;
+  // Compra no cartão: `data` é o vencimento da fatura; a compra é dataCompetencia.
+  cardId?: string | null;
+  cardInvoiceId?: string | null;
   category?: Category;
   account?: Account;
   // Só em transferência. Null nas transferências gravadas antes do destino existir.
@@ -72,6 +95,7 @@ export interface Installment {
   numeroParcelas: number;
   dataCompra: string;
   primeiroVencimento: string;
+  cardId?: string | null;
   status: 'ativa' | 'quitada' | 'cancelada';
   account?: Account;
   category?: Category | null;

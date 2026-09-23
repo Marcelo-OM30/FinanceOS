@@ -25,8 +25,9 @@ export class Card {
   @Column('varchar', { length: 255 })
   nome!: string;
 
-  @Column('varchar', { length: 255 })
-  numeroCriptografado!: string;
+  // Legado: o cadastro pedia o número completo. Hoje só os 4 últimos dígitos.
+  @Column('varchar', { length: 255, nullable: true })
+  numeroCriptografado?: string | null;
 
   @Column('varchar', { length: 4, nullable: true })
   ultimosDigitos?: string;

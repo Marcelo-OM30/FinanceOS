@@ -218,14 +218,35 @@ alerta é gerado — não quando um orçamento estoura, não quando uma meta ent
 risco, nunca. O contador `alertasNaoLidos` do dashboard será sempre 0, e não
 existe tela para listar alertas. O módulo está inteiro morto.
 
-## 10. Cartões (`cards`)
+## 10. Cartões e faturas (`cards`, `card_invoices`)
 
-CRUD completo no backend, com o número do cartão criptografado em AES-256-CBC
-antes de gravar (`numeroCriptografado`) e apenas os `ultimosDigitos` em claro.
+Desde 23/09/2026 há tela de Cartões. O cadastro pede só os **4 últimos
+dígitos** — o número completo não é mais aceito nem guardado (cartões antigos
+podem ter `numeroCriptografado`, e por isso `CARD_ENCRYPTION_KEY` continua
+obrigatória). Só cartão de **crédito** recebe compras, e ele precisa de dia de
+fechamento e de vencimento (1 a 28).
 
-**Lacunas:** (a) não existe nenhuma tela de cartões no frontend — o módulo só é
-alcançável via API; (b) ~~a chave de criptografia caía em um default hardcoded~~ — desde
-23/09/2026 o backend não sobe sem `CARD_ENCRYPTION_KEY` válida.
+**Compra no cartão** (formulário de transação, opção "Cartão de crédito", ou
+parcelamento): entra na fatura cujo fechamento é no dia da compra ou depois.
+Ela **não mexe no saldo**; fica prevista, com `data` = vencimento da fatura
+(quando o dinheiro sai) e `dataCompetencia` = dia da compra. Parcelado no
+cartão: cada parcela cai uma fatura depois da anterior. A fatura nasce com a
+primeira compra e some se ficar aberta e vazia.
+
+**Pagar a fatura** debita o total da conta escolhida — uma transferência sem
+destino, "Fatura Nubank 09/2026", fora dos totais de receita e despesa porque
+as compras já contam — e confirma todas as compras de uma vez; parcelamentos
+cuja última parcela foi paga ficam quitados. Pagamento parcial não existe.
+"Desfazer" devolve o valor e reabre a fatura.
+
+Proteções: compra não se confirma sozinha; não muda de data, conta ou cartão
+(exclua e lance de novo); com a fatura paga, não pode ser excluída nem mudar
+de valor; o pagamento só se desfaz pela fatura; nada entra numa fatura paga;
+cartão com compras não pode ser excluído, só desativado.
+
+**Consequência a conhecer:** gráfico de categorias e orçamento contam só o
+realizado, então uma compra no cartão só aparece neles depois que a fatura é
+paga. O "comprometido" entra na Fase 4 da spec.
 
 ## 11. Perfil do usuário
 

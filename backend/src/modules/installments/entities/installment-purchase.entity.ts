@@ -30,7 +30,7 @@ export class InstallmentPurchase {
   @Column('uuid')
   accountId!: string;
 
-  // Parcelamento no cartão chega com a fatura (Fase 3); até lá é sempre nulo.
+  // Parcelado no cartão: cada parcela cai numa fatura, a partir da fatura da compra.
   @Column('uuid', { nullable: true })
   cardId?: string | null;
 

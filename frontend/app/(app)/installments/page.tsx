@@ -11,7 +11,7 @@ import Spinner from '@/components/ui/Spinner';
 import api from '@/lib/api';
 import { formatCurrency, formatDate, todayISO } from '@/lib/format';
 import { useForm } from 'react-hook-form';
-import type { Account, Category, Installment } from '@/types';
+import type { Account, Card as CreditCard, Category, Installment } from '@/types';
 import { HiPlus, HiX } from 'react-icons/hi';
 
 interface InstallmentForm {
@@ -21,6 +21,7 @@ interface InstallmentForm {
   dataCompra: string;
   primeiroVencimento: string;
   accountId: string;
+  cardId: string;
   categoryId: string;
 }
 
@@ -42,6 +43,7 @@ function previaParcelas(total: number, n: number): [number, number] | null {
 export default function InstallmentsPage() {
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [cards, setCards] = useState<CreditCard[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -58,11 +60,13 @@ export default function InstallmentsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [i, a, c] = await Promise.all([
+      const [i, a, c, k] = await Promise.all([
         api.get<{ data: Installment[] }>('/installments'),
         api.get<Account[]>('/accounts'),
         api.get<Category[]>('/categories'),
+        api.get<CreditCard[]>('/cards'),
       ]);
+      setCards(Array.isArray(k.data) ? k.data.filter((card) => card.tipo === 'crédito') : []);
       setInstallments(Array.isArray(i.data?.data) ? i.data.data : []);
       setAccounts(Array.isArray(a.data) ? a.data : []);
       setCategories(Array.isArray(c.data) ? c.data.filter((cat) => cat.tipo !== 'receita') : []);
@@ -88,13 +92,16 @@ export default function InstallmentsPage() {
     setSubmitting(true);
     try {
       // Campo a campo: o backend recusa qualquer propriedade que não conheça.
+      // No cartão, conta e vencimentos vêm do cartão e das faturas.
+      const noCartao = !!data.cardId;
       await api.post('/installments', {
         descricao: data.descricao,
         valorTotal: parseFloat(data.valorTotal),
         numeroParcelas: parseInt(data.numeroParcelas, 10),
         dataCompra: data.dataCompra,
-        primeiroVencimento: data.primeiroVencimento,
-        accountId: data.accountId,
+        primeiroVencimento: noCartao ? undefined : data.primeiroVencimento,
+        accountId: noCartao ? undefined : data.accountId,
+        cardId: noCartao ? data.cardId : undefined,
         categoryId: data.categoryId || undefined,
       });
       setModalOpen(false);
@@ -118,6 +125,7 @@ export default function InstallmentsPage() {
     await load();
   };
 
+  const cardId = watch('cardId');
   const previa = previaParcelas(parseFloat(watch('valorTotal')), parseInt(watch('numeroParcelas'), 10));
 
   const accountOptions = [
@@ -168,7 +176,9 @@ export default function InstallmentsPage() {
                       <p className="font-semibold text-gray-900 truncate">{i.descricao}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {i.numeroParcelas}x de {formatCurrency(Number(i.valorParcela))} ·{' '}
-                        {i.account?.nome ?? 'Conta'}
+                        {i.cardId
+                          ? `💳 ${cards.find((c) => c.id === i.cardId)?.nome ?? 'Cartão'}`
+                          : i.account?.nome ?? 'Conta'}
                         {i.category ? ` · ${i.category.nome}` : ''}
                       </p>
                     </div>
@@ -268,6 +278,16 @@ export default function InstallmentsPage() {
                 : `1ª de ${formatCurrency(previa[0])} e as demais de ${formatCurrency(previa[1])}`}
             </p>
           )}
+          {cards.length > 0 && (
+            <Select
+              label="Cartão de crédito"
+              options={[
+                { value: '', label: 'Não — carnê, boleto ou crediário' },
+                ...cards.filter((c) => c.ativo).map((c) => ({ value: c.id, label: c.nome })),
+              ]}
+              {...register('cardId')}
+            />
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Data da compra"
@@ -275,28 +295,36 @@ export default function InstallmentsPage() {
               error={errors.dataCompra?.message}
               {...register('dataCompra', { required: 'Informe a data da compra' })}
             />
-            <Input
-              label="1º vencimento"
-              type="date"
-              error={errors.primeiroVencimento?.message}
-              {...register('primeiroVencimento', {
-                required: 'Informe o primeiro vencimento',
-                validate: (v, form) =>
-                  !form.dataCompra || v >= form.dataCompra || 'Não pode ser antes da compra',
+            {!cardId && (
+              <Input
+                label="1º vencimento"
+                type="date"
+                error={errors.primeiroVencimento?.message}
+                {...register('primeiroVencimento', {
+                  validate: (v, form) =>
+                    !!form.cardId ||
+                    (!v
+                      ? 'Informe o primeiro vencimento'
+                      : !form.dataCompra || v >= form.dataCompra || 'Não pode ser antes da compra'),
+                })}
+              />
+            )}
+          </div>
+          {!cardId && (
+            <Select
+              label="Conta que paga"
+              options={accountOptions}
+              error={errors.accountId?.message}
+              {...register('accountId', {
+                validate: (v, form) => !!form.cardId || !!v || 'Selecione uma conta',
               })}
             />
-          </div>
-          <Select
-            label="Conta que paga"
-            options={accountOptions}
-            error={errors.accountId?.message}
-            {...register('accountId', { required: 'Selecione uma conta' })}
-          />
+          )}
           <Select label="Categoria" options={categoryOptions} {...register('categoryId')} />
           <p className="text-xs text-gray-500">
-            Parcelas já vencidas entram como pagas; as futuras ficam agendadas e aparecem na
-            projeção. Compra no cartão: use a conta que paga a fatura e o dia de vencimento
-            dela.
+            {cardId
+              ? 'Cada parcela entra numa fatura, a partir da fatura da compra, e é paga junto com ela.'
+              : 'Parcelas já vencidas entram como pagas; as futuras ficam agendadas e aparecem na projeção.'}
           </p>
 
           <div className="flex gap-3 pt-2">

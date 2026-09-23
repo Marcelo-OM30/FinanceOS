@@ -8,6 +8,7 @@ import {
   MaxLength,
   Min,
   Max,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateInstallmentDto {
@@ -27,11 +28,19 @@ export class CreateInstallmentDto {
   @IsDateString()
   dataCompra: string;
 
+  // No cartão, o vencimento vem da fatura em que cada parcela cai.
+  @ValidateIf((o) => !o.cardId)
   @IsDateString()
-  primeiroVencimento: string;
+  primeiroVencimento?: string;
 
+  // No cartão, a conta é a do cartão.
+  @ValidateIf((o) => !o.cardId)
   @IsUUID()
-  accountId: string;
+  accountId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  cardId?: string;
 
   @IsOptional()
   @IsUUID()

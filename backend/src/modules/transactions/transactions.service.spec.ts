@@ -12,6 +12,7 @@ describe('TransactionsService — efeito no saldo', () => {
   let transactionsRepository: { findOne: jest.Mock };
   let accountsRepository: { findOne: jest.Mock };
   let service: TransactionsService;
+  let faturaRepo: { findOne: jest.Mock };
 
   beforeEach(() => {
     manager = {
@@ -26,7 +27,11 @@ describe('TransactionsService — efeito no saldo', () => {
         where.userId === userId && contasDoUsuario.includes(where.id) ? { id: where.id } : null,
       ),
     };
-    const dataSource = { transaction: (fn: (m: typeof manager) => unknown) => fn(manager) };
+    faturaRepo = { findOne: jest.fn(async () => null) };
+    const dataSource = {
+      transaction: (fn: (m: typeof manager) => unknown) => fn(manager),
+      getRepository: () => faturaRepo,
+    };
 
     service = new TransactionsService(
       transactionsRepository as unknown as Repository<Transaction>,
@@ -278,6 +283,91 @@ describe('TransactionsService — efeito no saldo', () => {
       );
 
       await expect(service.desconfirmar('t1', userId)).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('compra no cartão', () => {
+    const compra = (extra: Record<string, unknown> = {}) => ({
+      id: 't1', tipo: 'despesa', valor: '80.00', accountId: 'itau', contaDestinoId: null,
+      confirmada: false, cardId: 'c1', cardInvoiceId: 'f1', ...extra,
+    });
+
+    beforeEach(() => {
+      Object.assign(manager, {
+        findOne: jest.fn(async (entidade: { name: string }, { where }: { where: Record<string, unknown> }) => {
+          if (entidade.name === 'Card') {
+            return where.id === 'c1'
+              ? { id: 'c1', userId, accountId: 'itau', tipo: 'crédito', ativo: true, dataFechamentoFatura: 25, vencimentoFatura: 5 }
+              : null;
+          }
+          return { id: 'f1', status: 'aberta', dataVencimento: '2026-10-05', ...where };
+        }),
+        createQueryBuilder: jest.fn(() => {
+          const qb: Record<string, jest.Mock> = {};
+          qb.select = qb.addSelect = qb.where = jest.fn(() => qb);
+          qb.getRawOne = jest.fn(async () => ({ total: '80', compras: '1' }));
+          return qb;
+        }),
+        update: jest.fn(),
+      });
+      transactionsRepository.findOne.mockImplementation(async () => compra());
+    });
+
+    it('cai na fatura, fica prevista, não mexe no saldo e grava vencimento e competência', async () => {
+      await service.create(userId, {
+        ...base, data: '2026-09-23', tipo: 'despesa', valor: 80, accountId: 'itau', cardId: 'c1',
+      });
+
+      const [primeiro, segundo] = manager.save.mock.calls[0];
+      const salva = segundo ?? primeiro;
+      expect(salva).toMatchObject({
+        cardId: 'c1', cardInvoiceId: 'f1', confirmada: false,
+        data: '2026-10-05', dataCompetencia: '2026-09-23', accountId: 'itau',
+      });
+      expect(manager.increment).not.toHaveBeenCalled();
+      expect((manager as any).update).toHaveBeenCalledWith(expect.anything(), 'f1', { valorTotal: 80 });
+    });
+
+    it('recusa receita no cartão', async () => {
+      await expect(
+        service.create(userId, { ...base, tipo: 'receita', valor: 80, accountId: 'itau', cardId: 'c1' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('não se confirma sozinha: é o pagamento da fatura que confirma', async () => {
+      await expect(service.confirmar('t1', userId)).rejects.toThrow(ConflictException);
+    });
+
+    it('não pode mudar de data (mudaria de fatura)', async () => {
+      await expect(service.update('t1', userId, { data: '2026-11-01' })).rejects.toThrow(BadRequestException);
+    });
+
+    it('com a fatura paga, não pode ser excluída nem mudar de valor', async () => {
+      faturaRepo.findOne.mockImplementation(async ({ where }: { where: Record<string, unknown> }) =>
+        where.id === 'f1' ? { id: 'f1', status: 'paga' } : null,
+      );
+
+      await expect(service.remove('t1', userId)).rejects.toThrow(ConflictException);
+      await expect(service.update('t1', userId, { valor: 10 })).rejects.toThrow(ConflictException);
+    });
+
+    it('excluir recalcula a fatura', async () => {
+      await service.remove('t1', userId);
+
+      expect(manager.remove).toHaveBeenCalled();
+      expect((manager as any).update).toHaveBeenCalledWith(expect.anything(), 'f1', { valorTotal: 80 });
+    });
+
+    it('o pagamento de uma fatura não se edita nem se exclui pela transação', async () => {
+      transactionsRepository.findOne.mockImplementation(async () => ({
+        id: 'pg', tipo: 'transferência', valor: '80.00', accountId: 'itau', contaDestinoId: null, confirmada: true,
+      }));
+      faturaRepo.findOne.mockImplementation(async ({ where }: { where: Record<string, unknown> }) =>
+        where.pagamentoTransactionId === 'pg' ? { id: 'f1' } : null,
+      );
+
+      await expect(service.remove('pg', userId)).rejects.toThrow(ConflictException);
+      await expect(service.update('pg', userId, { valor: 1 })).rejects.toThrow(ConflictException);
     });
   });
 });

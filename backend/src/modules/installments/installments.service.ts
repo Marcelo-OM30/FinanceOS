@@ -9,6 +9,7 @@ import { UpdateInstallmentDto } from './dto/update-installment.dto';
 import { FilterInstallmentDto } from './dto/filter-installment.dto';
 import { aplicarNoSaldo } from '../transactions/saldo';
 import { hojeNoFuso, somarMeses } from '../../common/datas';
+import { cartaoParaCompra, cicloDaCompra, faturaAberta, recalcularFatura } from '../card-invoices/fatura';
 
 export interface ResumoParcelamento {
   parcelasPagas: number;
@@ -66,58 +67,81 @@ export class InstallmentsService {
   }
 
   async create(userId: string, dto: CreateInstallmentDto, fuso?: string): Promise<InstallmentWithStats> {
-    const conta = await this.accountsRepository.findOne({ where: { id: dto.accountId, userId } });
-    if (!conta) throw new BadRequestException('Conta não encontrada');
-    if (dto.primeiroVencimento.slice(0, 10) < dto.dataCompra.slice(0, 10)) {
-      throw new BadRequestException('O primeiro vencimento não pode ser antes da compra');
+    const dataCompra = dto.dataCompra.slice(0, 10);
+    if (!dto.cardId) {
+      const conta = await this.accountsRepository.findOne({ where: { id: dto.accountId, userId } });
+      if (!conta) throw new BadRequestException('Conta não encontrada');
+      if (dto.primeiroVencimento!.slice(0, 10) < dataCompra) {
+        throw new BadRequestException('O primeiro vencimento não pode ser antes da compra');
+      }
     }
     if (Math.round(dto.valorTotal * 100) < dto.numeroParcelas) {
       throw new BadRequestException('Valor total pequeno demais para esse número de parcelas');
     }
 
     const valores = dividirEmParcelas(dto.valorTotal, dto.numeroParcelas);
-    const dataCompra = dto.dataCompra.slice(0, 10);
-    const primeiroVencimento = dto.primeiroVencimento.slice(0, 10);
     const hoje = hojeNoFuso(fuso);
 
     const id = await this.dataSource.transaction(async (manager) => {
+      // Onde cada parcela cai. Na conta: um vencimento por mês, e o que já
+      // venceu foi pago — permite cadastrar uma compra em andamento. No cartão:
+      // uma fatura por mês a partir da fatura da compra, e tudo fica previsto
+      // até a fatura ser paga.
+      let accountId = dto.accountId!;
+      let alvos: Array<{ data: string; cardInvoiceId: string | null; confirmada: boolean }>;
+      if (dto.cardId) {
+        const card = await cartaoParaCompra(manager, userId, dto.cardId);
+        accountId = card.accountId;
+        alvos = [];
+        for (let i = 0; i < valores.length; i++) {
+          const fatura = await faturaAberta(manager, card, cicloDaCompra(card, dataCompra, i));
+          alvos.push({ data: fatura.dataVencimento, cardInvoiceId: fatura.id, confirmada: false });
+        }
+      } else {
+        alvos = valores.map((_, i) => {
+          const data = somarMeses(dto.primeiroVencimento!.slice(0, 10), i);
+          return { data, cardInvoiceId: null, confirmada: data <= hoje };
+        });
+      }
+
       const compra = await manager.save(
         manager.create(InstallmentPurchase, {
           userId,
-          accountId: dto.accountId,
+          accountId,
           categoryId: dto.categoryId ?? null,
-          cardId: null,
+          cardId: dto.cardId ?? null,
           descricao: dto.descricao,
           valorTotal: dto.valorTotal,
           numeroParcelas: dto.numeroParcelas,
           valorParcela: valores[valores.length - 1],
           dataCompra,
-          primeiroVencimento,
+          primeiroVencimento: alvos[0].data,
           status: 'ativa',
         }),
       );
 
-      const parcelas = valores.map((valor, i) => {
-        const data = somarMeses(primeiroVencimento, i);
-        return manager.create(Transaction, {
+      const parcelas = valores.map((valor, i) =>
+        manager.create(Transaction, {
           userId,
-          accountId: dto.accountId,
+          accountId,
+          cardId: dto.cardId ?? null,
+          cardInvoiceId: alvos[i].cardInvoiceId,
           categoryId: dto.categoryId,
           tipo: 'despesa',
           descricao: `${dto.descricao} (${i + 1}/${dto.numeroParcelas})`,
           valor,
-          data: data as any,
+          data: alvos[i].data as any,
           dataCompetencia: dataCompra as any,
-          // Cadastrar uma compra já em andamento: o que venceu, foi pago.
-          confirmada: data <= hoje,
+          confirmada: alvos[i].confirmada,
           recurso: 'manual',
           tags: [],
           installmentPurchaseId: compra.id,
           numeroParcela: i + 1,
-        });
-      });
+        }),
+      );
       await manager.save(Transaction, parcelas);
       for (const p of parcelas) await aplicarNoSaldo(manager, p, 1);
+      for (const a of alvos) if (a.cardInvoiceId) await recalcularFatura(manager, a.cardInvoiceId);
 
       if (parcelas.every((p) => p.confirmada)) {
         await manager.update(InstallmentPurchase, compra.id, { status: 'quitada' });
@@ -164,7 +188,9 @@ export class InstallmentsService {
         where: { installmentPurchaseId: id, confirmada: false },
       });
       for (const p of previstas) await aplicarNoSaldo(manager, p, -1);
+      const faturas = [...new Set(previstas.map((p) => p.cardInvoiceId).filter((f): f is string => !!f))];
       await manager.remove(Transaction, previstas);
+      for (const f of faturas) await recalcularFatura(manager, f);
       await manager.update(InstallmentPurchase, id, { status: 'cancelada' });
     });
   }

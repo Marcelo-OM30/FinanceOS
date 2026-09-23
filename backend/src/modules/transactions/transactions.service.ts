@@ -14,11 +14,24 @@ import { FilterTransactionDto } from './dto/filter-transaction.dto';
 import { limitesDoMes } from '../../common/datas';
 import { aplicarNoSaldo } from './saldo';
 import { sincronizarStatusDoParcelamento } from '../installments/status-parcelamento';
+import { CardInvoice } from '../card-invoices/entities/card-invoice.entity';
+import {
+  cartaoParaCompra,
+  cicloDaCompra,
+  faturaAberta,
+  recalcularFatura,
+} from '../card-invoices/fatura';
 
 // Mudar qualquer um deles numa parcela avulsa quebraria a soma das parcelas
 // = valor total, ou mudaria a compra de conta ou de mês.
 const CAMPOS_FIXOS_DA_PARCELA = [
   'valor', 'tipo', 'data', 'dataCompetencia', 'accountId', 'cardId', 'contaDestinoId',
+] as const;
+
+// Numa compra no cartão, mudar qualquer um deles mudaria a fatura em que ela
+// cai; é mais honesto excluir e lançar de novo.
+const CAMPOS_FIXOS_DA_COMPRA_NO_CARTAO = [
+  'tipo', 'data', 'dataCompetencia', 'accountId', 'cardId', 'contaDestinoId',
 ] as const;
 
 @Injectable()
@@ -73,6 +86,7 @@ export class TransactionsService {
   }
 
   async create(userId: string, dto: CreateTransactionDto): Promise<Transaction> {
+    if (dto.cardId) return this.criarCompraNoCartao(userId, dto);
     await this.validarContas(userId, dto, true);
 
     return this.dataSource.transaction(async (manager) => {
@@ -93,11 +107,65 @@ export class TransactionsService {
     });
   }
 
+  /**
+   * `data` do payload é o dia da compra. Gravada, a transação fica com `data`
+   * = vencimento da fatura (quando o dinheiro sai) e `dataCompetencia` = dia
+   * da compra, prevista até a fatura ser paga.
+   */
+  private async criarCompraNoCartao(userId: string, dto: CreateTransactionDto): Promise<Transaction> {
+    if (dto.tipo !== 'despesa') {
+      throw new BadRequestException('No cartão de crédito só se lança despesa');
+    }
+    if (dto.confirmada === true) {
+      throw new BadRequestException('Compra no cartão é confirmada pelo pagamento da fatura');
+    }
+    const dataCompra = dto.data.slice(0, 10);
+
+    const id = await this.dataSource.transaction(async (manager) => {
+      const card = await cartaoParaCompra(manager, userId, dto.cardId!);
+      const fatura = await faturaAberta(manager, card, cicloDaCompra(card, dataCompra));
+      const saved = await manager.save(
+        manager.create(Transaction, {
+          ...dto,
+          userId,
+          accountId: card.accountId,
+          cardInvoiceId: fatura.id,
+          contaDestinoId: null,
+          confirmada: false,
+          data: fatura.dataVencimento as any,
+          dataCompetencia: dataCompra as any,
+          recurso: dto.recurso ?? 'manual',
+          tags: dto.tags ?? [],
+        }),
+      );
+      await recalcularFatura(manager, fatura.id);
+      return saved.id;
+    });
+    return this.findOne(id, userId);
+  }
+
   async update(id: string, userId: string, dto: UpdateTransactionDto): Promise<Transaction> {
     // Carregada sem relações: com `account` preenchido, o TypeORM ignoraria
     // uma troca de accountId feita pelo DTO.
     const transaction = await this.transactionsRepository.findOne({ where: { id, userId } });
     if (!transaction) throw new NotFoundException('Transação não encontrada');
+
+    await this.recusarSePagamentoDeFatura(id);
+
+    if (transaction.cardId) {
+      if (dto.confirmada !== undefined && dto.confirmada !== transaction.confirmada) {
+        throw new ConflictException('Compra no cartão é confirmada pelo pagamento da fatura');
+      }
+      const proibidos = CAMPOS_FIXOS_DA_COMPRA_NO_CARTAO.filter((c) => dto[c] !== undefined);
+      if (proibidos.length > 0) {
+        throw new BadRequestException(
+          `Compra no cartão não pode ter ${proibidos.join(', ')} alterado: exclua e lance de novo`,
+        );
+      }
+      if (dto.valor !== undefined) await this.recusarSeFaturaPaga(transaction.cardInvoiceId);
+    } else if (dto.cardId) {
+      throw new BadRequestException('Para passar para o cartão, exclua e lance de novo');
+    }
 
     if (transaction.installmentPurchaseId) {
       const proibidos = CAMPOS_FIXOS_DA_PARCELA.filter((c) => dto[c] !== undefined);
@@ -130,6 +198,7 @@ export class TransactionsService {
       if (transaction.installmentPurchaseId && antes.confirmada !== transaction.confirmada) {
         await sincronizarStatusDoParcelamento(manager, transaction.installmentPurchaseId);
       }
+      if (transaction.cardInvoiceId) await recalcularFatura(manager, transaction.cardInvoiceId);
     });
 
     return this.findOne(id, userId);
@@ -138,6 +207,9 @@ export class TransactionsService {
   /** Prevista → realizada: o valor passa a contar no saldo. */
   async confirmar(id: string, userId: string): Promise<Transaction> {
     const transaction = await this.findOne(id, userId);
+    if (transaction.cardId) {
+      throw new ConflictException('Compra no cartão é confirmada pelo pagamento da fatura');
+    }
     if (transaction.confirmada) throw new ConflictException('Transação já confirmada');
     return this.update(id, userId, { confirmada: true });
   }
@@ -149,6 +221,9 @@ export class TransactionsService {
       relations: ['installmentPurchase'],
     });
     if (!transaction) throw new NotFoundException('Transação não encontrada');
+    if (transaction.cardId) {
+      throw new ConflictException('Compra no cartão volta a prevista desfazendo o pagamento da fatura');
+    }
     if (!transaction.confirmada) throw new ConflictException('Transação já está prevista');
     // Cancelar apagou as previstas; uma parcela paga que voltasse a prevista
     // ficaria pendurada num parcelamento que não existe mais.
@@ -163,11 +238,32 @@ export class TransactionsService {
     if (transaction.installmentPurchaseId) {
       throw new ConflictException('Parcela não pode ser excluída sozinha: cancele o parcelamento');
     }
+    await this.recusarSePagamentoDeFatura(id);
+    if (transaction.cardId) await this.recusarSeFaturaPaga(transaction.cardInvoiceId);
 
     await this.dataSource.transaction(async (manager) => {
       await aplicarNoSaldo(manager, transaction, -1);
       await manager.remove(Transaction, transaction);
+      if (transaction.cardInvoiceId) await recalcularFatura(manager, transaction.cardInvoiceId);
     });
+  }
+
+  /** O pagamento de fatura só se desfaz pela fatura, que também desconfirma as compras. */
+  private async recusarSePagamentoDeFatura(transactionId: string): Promise<void> {
+    const fatura = await this.dataSource
+      .getRepository(CardInvoice)
+      .findOne({ where: { pagamentoTransactionId: transactionId } });
+    if (fatura) {
+      throw new ConflictException('Pagamento de fatura: desfaça pelo cartão, na fatura');
+    }
+  }
+
+  private async recusarSeFaturaPaga(cardInvoiceId?: string | null): Promise<void> {
+    if (!cardInvoiceId) return;
+    const fatura = await this.dataSource.getRepository(CardInvoice).findOne({ where: { id: cardInvoiceId } });
+    if (fatura?.status === 'paga') {
+      throw new ConflictException('A fatura desta compra já foi paga; desfaça o pagamento antes');
+    }
   }
 
   private async validarContas(
