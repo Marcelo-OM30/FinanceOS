@@ -227,4 +227,57 @@ describe('TransactionsService — efeito no saldo', () => {
       expect(manager.remove).toHaveBeenCalled();
     });
   });
+
+  describe('parcela de parcelamento', () => {
+    const parcela = (extra: Record<string, unknown> = {}) => ({
+      id: 't1', tipo: 'despesa', valor: '100.00', accountId: 'itau', contaDestinoId: null,
+      confirmada: false, installmentPurchaseId: 'compra1', numeroParcela: 3, ...extra,
+    });
+
+    beforeEach(() => {
+      Object.assign(manager, {
+        findOne: jest.fn(async () => ({ id: 'compra1', status: 'ativa' })),
+        count: jest.fn(async () => 0),
+        update: jest.fn(),
+      });
+    });
+
+    it('não pode ser excluída sozinha', async () => {
+      transactionsRepository.findOne.mockResolvedValue(parcela());
+
+      await expect(service.remove('t1', userId)).rejects.toThrow(ConflictException);
+      expect(manager.remove).not.toHaveBeenCalled();
+    });
+
+    it.each([['valor', { valor: 50 }], ['data', { data: '2026-12-01' }], ['conta', { accountId: 'inter' }]])(
+      'não pode ter %s alterado sozinha',
+      async (_campo, dto) => {
+        transactionsRepository.findOne.mockResolvedValue(parcela());
+
+        await expect(service.update('t1', userId, dto)).rejects.toThrow(BadRequestException);
+      },
+    );
+
+    it('pode mudar a categoria', async () => {
+      transactionsRepository.findOne.mockResolvedValue(parcela());
+
+      await expect(service.update('t1', userId, { categoryId: 'cat2' })).resolves.toBeDefined();
+    });
+
+    it('confirmar a última prevista quita o parcelamento', async () => {
+      transactionsRepository.findOne.mockImplementation(async () => parcela());
+
+      await service.confirmar('t1', userId);
+
+      expect((manager as any).update).toHaveBeenCalledWith(expect.anything(), 'compra1', { status: 'quitada' });
+    });
+
+    it('parcela paga de parcelamento cancelado não volta a prevista', async () => {
+      transactionsRepository.findOne.mockResolvedValue(
+        parcela({ confirmada: true, installmentPurchase: { status: 'cancelada' } }),
+      );
+
+      await expect(service.desconfirmar('t1', userId)).rejects.toThrow(ConflictException);
+    });
+  });
 });

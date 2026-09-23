@@ -12,6 +12,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { BudgetsModule } from './modules/budgets/budgets.module';
 import { GoalsModule } from './modules/goals/goals.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { InstallmentsModule } from './modules/installments/installments.module';
 
 // Database configuration
 import { databaseConfig } from './config/database.config';
@@ -46,6 +47,7 @@ import { HealthController } from './common/health.controller';
     BudgetsModule,
     GoalsModule,
     DashboardModule,
+    InstallmentsModule,
   ],
   controllers: [HealthController],
 })

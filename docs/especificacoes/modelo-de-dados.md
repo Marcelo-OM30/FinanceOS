@@ -101,7 +101,28 @@ visíveis na mesma lista.
 | `reconciliada` | boolean | padrão false — **nunca lido** |
 | `confirmada` | boolean | padrão true = realizada; false = prevista, fora do saldo e dos totais. Índice `['userId','confirmada','data']` |
 
-Índices: `['userId','data']`, `['categoryId']`, `['accountId']`.
+| `installmentPurchaseId` | uuid | parcela de um parcelamento, `ON DELETE CASCADE` |
+| `numeroParcela` | int | 1..N, só em parcela |
+
+Índices: `['userId','data']`, `['userId','confirmada','data']`, `['categoryId']`,
+`['accountId']`, `['contaDestinoId']`, `['installmentPurchaseId']`.
+
+## installment_purchases
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `userId`, `accountId` | uuid | obrigatórios, `ON DELETE CASCADE` |
+| `cardId` | uuid | sempre nulo até a Fase 3 |
+| `categoryId` | uuid | `ON DELETE SET NULL` |
+| `descricao` | varchar(255) | |
+| `valorTotal`, `valorParcela` | numeric(15,2) | `valorParcela` é o das parcelas 2..N; a 1ª leva o resíduo |
+| `numeroParcelas` | int | 2 a 120 |
+| `dataCompra` | date | vira `dataCompetencia` das parcelas |
+| `primeiroVencimento` | date | |
+| `status` | varchar(20) | `ativa` \| `quitada` \| `cancelada` |
+
+Índice: `['userId','status']`. Registrada nos dois pontos de entidades
+(`config/database.config.ts` e `database/data-source.ts`).
 
 ## budgets
 

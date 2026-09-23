@@ -72,3 +72,14 @@ export function diasEntre(de: string, ate: string): number {
   const utc = ({ ano, mes, dia }: DataCivil) => Date.UTC(ano, mes - 1, dia);
   return Math.round((utc(partesDaData(ate)) - utc(partesDaData(de))) / 86_400_000);
 }
+
+/**
+ * Soma meses a uma data. Se o dia não existe no mês de destino (31/01 + 1 mês),
+ * usa o último dia do mês — nunca transborda para o mês seguinte.
+ */
+export function somarMeses(data: string, meses: number): string {
+  const { ano, mes, dia } = partesDaData(data);
+  const destino = deslocarMes(ano, mes, meses);
+  const d = Math.min(dia, diasNoMes(destino.ano, destino.mes));
+  return `${destino.ano}-${String(destino.mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}

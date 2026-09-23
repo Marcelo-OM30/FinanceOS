@@ -10,6 +10,7 @@ import {
   HiFlag,
   HiTag,
   HiLogout,
+  HiCollection,
 } from 'react-icons/hi';
 import { useAuthStore } from '@/store/auth.store';
 import { useUiStore } from '@/store/ui.store';
@@ -18,6 +19,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: HiHome },
   { href: '/transactions', label: 'Transações', icon: HiCurrencyDollar },
   { href: '/accounts', label: 'Contas', icon: HiCreditCard },
+  { href: '/installments', label: 'Parcelamentos', icon: HiCollection },
   { href: '/budgets', label: 'Orçamentos', icon: HiChartPie },
   { href: '/goals', label: 'Metas', icon: HiFlag },
   { href: '/categories', label: 'Categorias', icon: HiTag },

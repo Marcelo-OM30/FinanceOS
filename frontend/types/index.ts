@@ -49,6 +49,8 @@ export interface Transaction {
   dataCompetencia?: string | null;
   // true = realizada, false = prevista (agendada; ainda não mexeu no saldo).
   confirmada: boolean;
+  installmentPurchaseId?: string | null;
+  numeroParcela?: number | null;
   category?: Category;
   account?: Account;
   // Só em transferência. Null nas transferências gravadas antes do destino existir.
@@ -59,6 +61,28 @@ export interface Transaction {
   recorrencia?: 'única' | 'semanal' | 'mensal' | 'anual';
   numeroNota?: string;
   dataCriacao: string;
+}
+
+export interface Installment {
+  id: string;
+  descricao: string;
+  // Colunas decimal chegam da API como texto: Number() antes de fazer conta.
+  valorTotal: string;
+  valorParcela: string;
+  numeroParcelas: number;
+  dataCompra: string;
+  primeiroVencimento: string;
+  status: 'ativa' | 'quitada' | 'cancelada';
+  account?: Account;
+  category?: Category | null;
+  // Calculados na leitura, já como número.
+  parcelasPagas: number;
+  parcelasRestantes: number;
+  valorPago: number;
+  saldoDevedor: number;
+  proximoVencimento: string | null;
+  // Só em GET /installments/:id.
+  parcelas?: Transaction[];
 }
 
 export interface Budget {

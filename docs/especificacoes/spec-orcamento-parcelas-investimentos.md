@@ -125,6 +125,13 @@ mas `dataCompetencia` precisa ser montada explicitamente no payload do frontend.
 
 ## 2. Parcelamento
 
+> **Implementada em 23/09/2026.** Desvios: não aceita `cardId` até a Fase 3 (sem
+> fatura, criaria dados que precisariam de backfill); query `cardId` do
+> `GET /installments` também fica para lá. Acréscimos: parcela não pode ser
+> excluída nem ter `valor`/`data`/conta alterados sozinha (quebraria a
+> invariante do §2.3); desconfirmar parcela de parcelamento cancelado dá 409;
+> `numeroParcelas` limitado a 120.
+
 ### 2.1 Decisão de modelagem
 
 Parcelado e recorrente são **duas entidades distintas**, não uma tabela genérica de
@@ -602,8 +609,8 @@ Precisam de resposta antes da fase correspondente:
 |---|---|---|---|
 | **0** | ~~Timezone por usuário; refresh de token no frontend; backup do Postgres~~ — concluída em 23/09/2026 | — | sessão não cai; datas corretas |
 | **1** | ~~Previsto × realizado (§1)~~ — concluída em 23/09/2026, exceto a regra de cartão, que foi para a Fase 3: `confirmada` nos cálculos, `dataCompetencia` no orçamento, endpoints de confirmar/desconfirmar | 0 | lançar gasto futuro avulso |
-| **2** | Parcelamento (§2) | 1 | "comprei em 12x" aparece nos próximos 12 meses |
-| **3** | Fatura de cartão (§3) + tela de cartões (hoje inexistente) + regra do §1.2 para `cardId` e backfill do §3.4 | 2 | gasto de crédito no fluxo de caixa certo |
+| **2** | ~~Parcelamento (§2)~~ — concluída em 23/09/2026, sem cartão | 1 | "comprei em 12x" aparece nos próximos 12 meses |
+| **3** | Fatura de cartão (§3) + tela de cartões (hoje inexistente) + regra do §1.2 para `cardId` e backfill do §3.4 + `cardId` no parcelamento | 2 | gasto de crédito no fluxo de caixa certo |
 | **4** | Orçamento: rollover, campos derivados, sugestões (§5) | 1, 2 | **orçamento montado a partir do histórico** |
 | **5** | Recorrências (§4) + projeção do dashboard usando previstos | 1 | contas fixas entram na projeção |
 | **6** | Investimentos (§6) | — | carteira com preço médio e cotação |

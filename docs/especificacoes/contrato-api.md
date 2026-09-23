@@ -30,7 +30,7 @@ Três formatos convivem. Confira qual antes de consumir:
 | Formato | Endpoints |
 |---|---|
 | Array puro `[...]` | `GET /accounts`, `/cards`, `/categories`, `/budgets`, `/goals`, `/alerts` |
-| Objeto embrulhado `{ data: [...], ... }` | `GET /transactions`, `/dashboard/chart-categories`, `/dashboard/chart-evolution` |
+| Objeto embrulhado `{ data: [...], ... }` | `GET /transactions`, `/installments`, `/dashboard/chart-categories`, `/dashboard/chart-evolution` |
 | Objeto simples | `/dashboard/summary`, `/dashboard/projection`, `/users/profile`, e todo `GET/POST/PATCH` de item único |
 
 Uniformizar isso é uma dívida técnica conhecida. Enquanto não for feito, o
@@ -92,6 +92,33 @@ Cada item traz `account`, `contaDestino` (null fora de transferência), `categor
 
 > **Não existe** campo `recorrente` (boolean). Enviar isso dá 400. O checkbox da
 > interface é traduzido para `recorrencia`.
+
+## Parcelamentos
+
+| Método | Rota | Observação |
+|---|---|---|
+| GET | `/installments` | `{ data: [...] }` ← **embrulhada**. Query `status` (`ativa` \| `quitada` \| `cancelada`) |
+| GET | `/installments/:id` | inclui `parcelas: Transaction[]`, ordenadas por `numeroParcela` |
+| POST | `/installments` | cria a compra e todas as parcelas; devolve como o GET de item |
+| PATCH | `/installments/:id` | **só** `descricao` e `categoryId` (propaga para as parcelas) |
+| DELETE | `/installments/:id` | 204. Cancela: exclui as parcelas previstas, mantém as pagas |
+
+**Body de `POST /installments`:** `descricao` (máx. 240), `valorTotal` (mín.
+0.02, 2 casas), `numeroParcelas` (2 a 120), `dataCompra`, `primeiroVencimento`
+(não antes da compra), `accountId`, `categoryId?`. Não aceita `cardId` ainda
+(Fase 3). 400 se sobrar menos de um centavo por parcela.
+
+**Cada item:** colunas da tabela — `valorTotal` e `valorParcela` chegam como
+**texto** (decimal) — mais os calculados, já numéricos: `parcelasPagas`,
+`parcelasRestantes`, `valorPago`, `saldoDevedor`, `proximoVencimento` (ou
+`null`).
+
+As parcelas são transações comuns com `installmentPurchaseId` e
+`numeroParcela`. Nelas, `DELETE /transactions/:id` dá 409 e `PATCH` que mexa em
+`valor`, `tipo`, `data`, `dataCompetencia`, `accountId`, `cardId` ou
+`contaDestinoId` dá 400. Confirmar a última prevista marca o parcelamento como
+`quitada`; desconfirmar volta para `ativa`; em parcelamento cancelado,
+`desconfirmar` dá 409.
 
 ## Dashboard
 

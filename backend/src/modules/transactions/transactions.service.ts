@@ -5,15 +5,21 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Between, EntityManager, FindOptionsWhere } from 'typeorm';
+import { Repository, DataSource, Between, FindOptionsWhere } from 'typeorm';
 import { Transaction } from './entities/transaction.entity';
 import { Account } from '../accounts/entities/account.entity';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
 import { limitesDoMes } from '../../common/datas';
+import { aplicarNoSaldo } from './saldo';
+import { sincronizarStatusDoParcelamento } from '../installments/status-parcelamento';
 
-type EfeitoInput = Pick<Transaction, 'tipo' | 'valor' | 'accountId' | 'contaDestinoId' | 'confirmada'>;
+// Mudar qualquer um deles numa parcela avulsa quebraria a soma das parcelas
+// = valor total, ou mudaria a compra de conta ou de mês.
+const CAMPOS_FIXOS_DA_PARCELA = [
+  'valor', 'tipo', 'data', 'dataCompetencia', 'accountId', 'cardId', 'contaDestinoId',
+] as const;
 
 @Injectable()
 export class TransactionsService {
@@ -82,7 +88,7 @@ export class TransactionsService {
       });
 
       const saved = await manager.save(Transaction, transaction);
-      await this.aplicarNoSaldo(manager, saved, 1);
+      await aplicarNoSaldo(manager, saved, 1);
       return saved;
     });
   }
@@ -92,6 +98,15 @@ export class TransactionsService {
     // uma troca de accountId feita pelo DTO.
     const transaction = await this.transactionsRepository.findOne({ where: { id, userId } });
     if (!transaction) throw new NotFoundException('Transação não encontrada');
+
+    if (transaction.installmentPurchaseId) {
+      const proibidos = CAMPOS_FIXOS_DA_PARCELA.filter((c) => dto[c] !== undefined);
+      if (proibidos.length > 0) {
+        throw new BadRequestException(
+          `Parcela não pode ter ${proibidos.join(', ')} alterado sozinha: cancele e recadastre o parcelamento`,
+        );
+      }
+    }
 
     const antes = { ...transaction };
     Object.assign(transaction, dto);
@@ -109,9 +124,12 @@ export class TransactionsService {
     await this.validarContas(userId, transaction, exigirDestino);
 
     await this.dataSource.transaction(async (manager) => {
-      await this.aplicarNoSaldo(manager, antes, -1);
+      await aplicarNoSaldo(manager, antes, -1);
       await manager.save(Transaction, transaction);
-      await this.aplicarNoSaldo(manager, transaction, 1);
+      await aplicarNoSaldo(manager, transaction, 1);
+      if (transaction.installmentPurchaseId && antes.confirmada !== transaction.confirmada) {
+        await sincronizarStatusDoParcelamento(manager, transaction.installmentPurchaseId);
+      }
     });
 
     return this.findOne(id, userId);
@@ -126,49 +144,30 @@ export class TransactionsService {
 
   /** Realizada → prevista: o valor sai do saldo e volta a ser só agendado. */
   async desconfirmar(id: string, userId: string): Promise<Transaction> {
-    const transaction = await this.findOne(id, userId);
+    const transaction = await this.transactionsRepository.findOne({
+      where: { id, userId },
+      relations: ['installmentPurchase'],
+    });
+    if (!transaction) throw new NotFoundException('Transação não encontrada');
     if (!transaction.confirmada) throw new ConflictException('Transação já está prevista');
+    // Cancelar apagou as previstas; uma parcela paga que voltasse a prevista
+    // ficaria pendurada num parcelamento que não existe mais.
+    if (transaction.installmentPurchase?.status === 'cancelada') {
+      throw new ConflictException('Parcela de parcelamento cancelado não pode voltar a prevista');
+    }
     return this.update(id, userId, { confirmada: false });
   }
 
   async remove(id: string, userId: string): Promise<void> {
     const transaction = await this.findOne(id, userId);
+    if (transaction.installmentPurchaseId) {
+      throw new ConflictException('Parcela não pode ser excluída sozinha: cancele o parcelamento');
+    }
 
     await this.dataSource.transaction(async (manager) => {
-      await this.aplicarNoSaldo(manager, transaction, -1);
+      await aplicarNoSaldo(manager, transaction, -1);
       await manager.remove(Transaction, transaction);
     });
-  }
-
-  // ─── Saldo ──────────────────────────────────────────────────────────────────
-
-  /**
-   * Quanto o saldo de cada conta muda por causa desta transação. Prevista
-   * (`confirmada = false`) não muda nada: como create, update e remove sempre
-   * desfazem o efeito antigo e aplicam o novo, confirmar e desconfirmar são só
-   * uma edição de `confirmada`. Transferência tira da origem e põe no destino,
-   * e por isso não entra em nenhum total de receita ou despesa. As antigas, sem
-   * destino, só tiram da origem — que é exatamente o que fizeram ao ser criadas.
-   */
-  private efeitoNoSaldo(t: EfeitoInput): Array<[string, number]> {
-    if (!t.confirmada) return [];
-    const valor = Number(t.valor);
-    if (t.tipo === 'receita') return [[t.accountId, valor]];
-    if (t.tipo === 'transferência' && t.contaDestinoId) {
-      return [[t.accountId, -valor], [t.contaDestinoId, valor]];
-    }
-    return [[t.accountId, -valor]];
-  }
-
-  /** `sinal = -1` desfaz o efeito. Incremento no banco, sem ler o saldo antes. */
-  private async aplicarNoSaldo(
-    manager: EntityManager,
-    t: EfeitoInput,
-    sinal: 1 | -1,
-  ): Promise<void> {
-    for (const [accountId, delta] of this.efeitoNoSaldo(t)) {
-      await manager.increment(Account, { id: accountId }, 'saldoAtual', sinal * delta);
-    }
   }
 
   private async validarContas(

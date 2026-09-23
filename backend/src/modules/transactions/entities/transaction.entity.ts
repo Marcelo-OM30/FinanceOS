@@ -11,6 +11,7 @@ import { User } from '../../users/entities/user.entity';
 import { Account } from '../../accounts/entities/account.entity';
 import { Card } from '../../accounts/entities/card.entity';
 import { Category } from '../../categories/entities/category.entity';
+import { InstallmentPurchase } from '../../installments/entities/installment-purchase.entity';
 
 @Entity('transactions')
 @Index(['userId', 'data'])
@@ -18,6 +19,7 @@ import { Category } from '../../categories/entities/category.entity';
 @Index(['categoryId'])
 @Index(['accountId'])
 @Index(['contaDestinoId'])
+@Index(['installmentPurchaseId'])
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -83,6 +85,14 @@ export class Transaction {
   @Column('boolean', { default: true })
   confirmada: boolean = true;
 
+  // Parcela de uma compra parcelada: não pode ser excluída nem ter valor ou
+  // data alterados sozinha, senão a soma das parcelas deixa de fechar o total.
+  @Column('uuid', { nullable: true })
+  installmentPurchaseId?: string | null;
+
+  @Column('int', { nullable: true })
+  numeroParcela?: number | null;
+
   @CreateDateColumn()
   dataCriacao!: Date;
 
@@ -101,6 +111,9 @@ export class Transaction {
 
   @ManyToOne(() => Card, (card) => card.transactions, { onDelete: 'SET NULL', nullable: true })
   card?: Card;
+
+  @ManyToOne(() => InstallmentPurchase, (p) => p.parcelas, { nullable: true, onDelete: 'CASCADE' })
+  installmentPurchase?: InstallmentPurchase;
 
   @ManyToOne(() => Category, (category) => category.transactions, { nullable: true, onDelete: 'SET NULL' })
   category?: Category;

@@ -109,6 +109,29 @@ depende da fatura existir (spec de orçamento, §3).
 4. **`reconciliada` não é usada.** `confirmada` passou a valer em 23/09/2026
    (previsto × realizado, ver abaixo).
 
+## 4a. Parcelamentos (`installment_purchases`)
+
+Desde 23/09/2026. Uma compra parcelada gera **todas** as parcelas na hora,
+como transações de despesa: descrição "Notebook (3/12)", vencimentos mensais a
+partir do primeiro (dia inexistente cai no último dia do mês: 31/01 → 28/02),
+`dataCompetencia` = data da compra. As já vencidas nascem realizadas e saem do
+saldo — dá para cadastrar uma compra em andamento —, as futuras nascem
+previstas e entram na projeção.
+
+A soma das parcelas é sempre exatamente o total: o resíduo do arredondamento
+vai na primeira (R$ 100 em 3x = 33,34 + 33,33 + 33,33). Por isso uma parcela
+não pode ser excluída nem ter valor, data ou conta alterados sozinha; só
+categoria, descrição e confirmação. Renegociar é cancelar e recadastrar.
+
+Cancelar exclui as parcelas previstas e mantém as pagas. Confirmar a última
+parcela quita o parcelamento. Tela própria em "Parcelamentos", com progresso,
+quanto falta e o próximo vencimento.
+
+**Limitações:** ainda não aceita cartão — até a fatura existir (Fase 3), a
+compra no cartão é cadastrada na conta que paga a fatura, com o dia de
+vencimento dela. Como o orçamento conta só o realizado, no mês da compra ele
+mostra apenas as parcelas já pagas; o total comprometido entra na Fase 4.
+
 ## 5. Categorias (`categories`)
 
 Categorias podem ser **globais** (`userId` nulo, criadas pelo seed e visíveis para
