@@ -1,5 +1,5 @@
-import { IsOptional, IsIn, IsDateString, IsUUID, IsInt, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsIn, IsDateString, IsUUID, IsInt, IsBoolean, Min, Max } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class FilterTransactionDto {
   @IsOptional()
@@ -25,6 +25,12 @@ export class FilterTransactionDto {
   @IsOptional()
   @IsIn(['receita', 'despesa', 'transferência'])
   tipo?: string;
+
+  // Query string chega como texto; omitido = realizadas e previstas.
+  @IsOptional()
+  @Transform(({ value }) => (value === 'true' ? true : value === 'false' ? false : value))
+  @IsBoolean()
+  confirmada?: boolean;
 
   @IsOptional()
   @Type(() => Number)

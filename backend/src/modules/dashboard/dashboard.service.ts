@@ -53,7 +53,12 @@ export class DashboardService {
       .leftJoin('t.category', 'c')
       .where('t.userId = :userId', { userId })
       .andWhere('t.tipo = :tipo', { tipo: 'despesa' })
-      .andWhere('t.data BETWEEN :inicio AND :fim', { inicio: inicioMes, fim: fimMes })
+      .andWhere('t.confirmada = true')
+      // Por competência, como o orçamento: o gasto conta no mês em que aconteceu.
+      .andWhere('COALESCE(t.dataCompetencia, t.data) BETWEEN :inicio AND :fim', {
+        inicio: inicioMes,
+        fim: fimMes,
+      })
       .groupBy('c.id')
       .addGroupBy('c.nome')
       .addGroupBy('c.cor')
@@ -112,27 +117,34 @@ export class DashboardService {
   async getProjection(userId: string, fuso?: string) {
     const hojeStr = hojeNoFuso(fuso);
     const { ano, mes, dia: diaAtual } = partesDaData(hojeStr);
-    const { inicio: inicioMes } = limitesDoMes(ano, mes);
+    const { inicio: inicioMes, fim: fimMes } = limitesDoMes(ano, mes);
     const diasRestantes = diasNoMes(ano, mes) - diaAtual;
 
-    const [accounts, saidasAteHoje] = await Promise.all([
+    const [accounts, saidasAteHoje, previstoEntradas, previstoSaidas] = await Promise.all([
       this.accountsRepository.find({ where: { userId, ativo: true } }),
       this.sumTransactions(userId, 'despesa', inicioMes, hojeStr),
+      this.sumPrevistas(userId, 'receita', fimMes),
+      this.sumPrevistas(userId, 'despesa', fimMes),
     ]);
 
     const saldoAtual = accounts.reduce((acc, a) => acc + Number(a.saldoAtual), 0);
 
-    // Projeção linear: taxa de gasto diária × dias restantes
+    // Gasto do dia a dia: taxa diária do que já saiu × dias restantes. O que
+    // está agendado entra pelo valor exato, somado à parte.
     const taxaDiaria = diaAtual > 0 ? saidasAteHoje / diaAtual : 0;
     const projecaoDespesasRestantes = taxaDiaria * diasRestantes;
-    const saldoProjetadoFimMes = saldoAtual - projecaoDespesasRestantes;
+    const saldoProjetadoFimMes =
+      saldoAtual + previstoEntradas - previstoSaidas - projecaoDespesasRestantes;
 
+    const centavos = (v: number) => Math.round(v * 100) / 100;
     return {
       saldoAtual,
-      saldoProjetadoFimMes: Math.round(saldoProjetadoFimMes * 100) / 100,
-      diferenca: Math.round((saldoProjetadoFimMes - saldoAtual) * 100) / 100,
+      saldoProjetadoFimMes: centavos(saldoProjetadoFimMes),
+      diferenca: centavos(saldoProjetadoFimMes - saldoAtual),
       diasRestantes,
-      taxaDiariaGasto: Math.round(taxaDiaria * 100) / 100,
+      taxaDiariaGasto: centavos(taxaDiaria),
+      previstoEntradas: centavos(previstoEntradas),
+      previstoSaidas: centavos(previstoSaidas),
     };
   }
 
@@ -149,7 +161,25 @@ export class DashboardService {
       .select('COALESCE(SUM(t.valor), 0)', 'total')
       .where('t.userId = :userId', { userId })
       .andWhere('t.tipo = :tipo', { tipo })
+      .andWhere('t.confirmada = true')
       .andWhere('t.data BETWEEN :inicio AND :fim', { inicio, fim })
+      .getRawOne<{ total: string }>();
+
+    return parseFloat(result?.total ?? '0');
+  }
+
+  /**
+   * Previstas até `ate`, inclusive as atrasadas (data já passou e ninguém
+   * confirmou): ainda não saíram do saldo, então ainda vão sair.
+   */
+  private async sumPrevistas(userId: string, tipo: string, ate: string): Promise<number> {
+    const result = await this.transactionsRepository
+      .createQueryBuilder('t')
+      .select('COALESCE(SUM(t.valor), 0)', 'total')
+      .where('t.userId = :userId', { userId })
+      .andWhere('t.tipo = :tipo', { tipo })
+      .andWhere('t.confirmada = false')
+      .andWhere('t.data <= :ate', { ate })
       .getRawOne<{ total: string }>();
 
     return parseFloat(result?.total ?? '0');

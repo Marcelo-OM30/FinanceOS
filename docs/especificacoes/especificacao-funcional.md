@@ -76,6 +76,14 @@ O registro central. Campos: `tipo` (`receita` | `despesa` | `transferência`),
 `categoryId`, `cardId`, `dataCompetencia`, `tags`, `numeroNota`, `recorrencia`,
 `confirmada`.
 
+**Previsto × realizado** (desde 23/09/2026): `confirmada = false` é uma
+transação **prevista** — agendada, ainda não aconteceu. Ela não mexe no saldo
+e não entra nos totais do mês, nos gráficos nem no orçamento; entra só na
+projeção. `POST /transactions/:id/confirmar` a torna realizada e aplica o valor
+no saldo; `desconfirmar` faz o inverso. Na tela, o formulário tem "Já
+aconteceu" (desmarca sozinho quando a data escolhida é futura), a lista marca
+"Agendada" e tem um botão para confirmar, e há filtro por status.
+
 Listagem paginada (padrão 20/página) com filtros por conta, categoria, cartão,
 tipo e intervalo de datas. Ordenação: `data DESC`, depois `dataCriacao DESC`.
 O filtro por conta inclui as transferências que chegam nela.
@@ -98,9 +106,8 @@ depende da fatura existir (spec de orçamento, §3).
    `recorrenciaGrupoId` e `proximoVencimento` existem e nunca são preenchidas.
 3. **Sem edição no frontend.** `PATCH /transactions/:id` está implementado e
    testado no backend, mas a interface só permite criar e excluir.
-4. **`confirmada` e `reconciliada` não são usadas.** Nenhuma tela lê ou escreve
-   esses campos, e os cálculos do dashboard ignoram os dois — ou seja, uma
-   transação não confirmada entra nos totais como qualquer outra.
+4. **`reconciliada` não é usada.** `confirmada` passou a valer em 23/09/2026
+   (previsto × realizado, ver abaixo).
 
 ## 5. Categorias (`categories`)
 
@@ -156,12 +163,18 @@ Quatro endpoints, todos restritos ao mês corrente (exceto a evolução):
 | `summary` | saldo consolidado das contas ativas, entradas e saídas do mês, resultado, alertas não lidos |
 | `chart-categories` | despesas do mês agrupadas por categoria, com percentual |
 | `chart-evolution` | receitas × despesas dos últimos N meses (padrão 6) |
-| `projection` | projeção linear de saldo até o fim do mês |
+| `projection` | projeção de saldo até o fim do mês |
 
-A projeção usa uma regra simples: `taxaDiaria = despesas do mês até hoje / dia
-atual`, e projeta `saldoAtual - (taxaDiaria × dias restantes)`. Como só soma
-despesas, **a projeção nunca é maior que o saldo atual** — não há previsão de
-receitas futuras.
+Todos somam só transações realizadas (`confirmada = true`). `summary` e
+`chart-evolution` usam `data` (caixa); `chart-categories` usa
+`COALESCE(dataCompetencia, data)` (competência), como o orçamento.
+
+A projeção soma duas partes: o gasto do dia a dia, extrapolado por
+`taxaDiaria = despesas realizadas do mês até hoje / dia atual`, e o que está
+agendado, pelo valor exato: `saldoAtual + receitas previstas − despesas
+previstas − taxaDiaria × dias restantes`. Previstas atrasadas (data passada,
+ainda não confirmadas) entram, porque ainda não saíram do saldo. Receita só
+entra na projeção se estiver agendada.
 
 **Fuso horário** (resolvido em 23/09/2026): "hoje" e "mês atual" saem do
 `timezone` do usuário (padrão `America/Sao_Paulo`), via

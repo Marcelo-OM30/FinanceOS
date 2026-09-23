@@ -59,11 +59,14 @@ removido (login e cadastro respondem 400 nos erros).
 | GET | `/transactions/:id` | inclui `category`, `account`, `card` |
 | POST | `/transactions` | ver DTO abaixo |
 | PATCH | `/transactions/:id` | todos os campos opcionais |
-| DELETE | `/transactions/:id` | 204, reverte o saldo da conta (das duas, em transferência) |
+| POST | `/transactions/:id/confirmar` | prevista → realizada, aplica no saldo. 409 se já confirmada |
+| POST | `/transactions/:id/desconfirmar` | realizada → prevista, tira do saldo. 409 se já prevista |
+| DELETE | `/transactions/:id` | 204, reverte o saldo da conta (das duas, em transferência); prevista não mexe em saldo |
 
 **Query de `GET /transactions`:** `accountId`, `categoryId`, `cardId`,
-`dataInicio`, `dataFim`, `tipo`, `page` (1), `limit` (20). `accountId` casa
-com a origem **ou** com o destino da transferência.
+`dataInicio`, `dataFim`, `tipo`, `confirmada` (`true` \| `false`; omitido =
+ambas), `page` (1), `limit` (20). `accountId` casa com a origem **ou** com o
+destino da transferência.
 
 **Resposta:** `{ data: Transaction[], total, page, limit }` ← **embrulhada**.
 Cada item traz `account`, `contaDestino` (null fora de transferência), `category` e `card`.
@@ -85,7 +88,7 @@ Cada item traz `account`, `contaDestino` (null fora de transferência), `categor
 | `recorrencia` | string | | `única` \| `semanal` \| `mensal` \| `anual` |
 | `tags` | string[] | | |
 | `numeroNota` | string | | máx. 50 |
-| `confirmada` | boolean | | |
+| `confirmada` | boolean | | padrão `true`. `false` = prevista: não mexe no saldo nem nos totais do mês até ser confirmada |
 
 > **Não existe** campo `recorrente` (boolean). Enviar isso dá 400. O checkbox da
 > interface é traduzido para `recorrencia`.
@@ -117,11 +120,16 @@ Cada item: `{ mes, mesNumero, ano, receitas, despesas, saldo }`. `meses` aceita
 
 ```json
 { "saldoAtual": 0, "saldoProjetadoFimMes": 0, "diferenca": 0,
-  "diasRestantes": 0, "taxaDiariaGasto": 0 }
+  "diasRestantes": 0, "taxaDiariaGasto": 0,
+  "previstoEntradas": 0, "previstoSaidas": 0 }
 ```
 
-> Não existe campo `tendencia`. E `diferenca` nunca é positiva, porque a projeção
-> só soma despesas futuras — não tente derivar "tendência" dela.
+`saldoProjetadoFimMes = saldoAtual + previstoEntradas − previstoSaidas −
+taxaDiariaGasto × diasRestantes`. `previsto*` somam as transações previstas com
+`data` até o fim do mês, inclusive as atrasadas. `diferenca` pode ser positiva
+quando há receita agendada.
+
+> Não existe campo `tendencia`.
 
 ## Contas e cartões
 

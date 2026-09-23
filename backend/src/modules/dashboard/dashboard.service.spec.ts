@@ -9,25 +9,42 @@ describe('DashboardService — mês do usuário', () => {
   const ultimaNoiteDeSetembro = new Date('2026-10-01T02:30:00Z');
 
   let periodos: Array<{ inicio: string; fim: string }>;
+  let previstas: { receita: number; despesa: number };
+  let consultas: Array<{ condicoes: string[]; params: Record<string, unknown> }>;
   let service: DashboardService;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(ultimaNoiteDeSetembro);
     periodos = [];
 
-    const qb: Record<string, jest.Mock> = {};
-    for (const m of ['select', 'addSelect', 'leftJoin', 'where', 'groupBy', 'addGroupBy', 'orderBy']) {
-      qb[m] = jest.fn(() => qb);
-    }
-    qb.andWhere = jest.fn((sql: string, params?: { inicio: string; fim: string }) => {
-      if (sql.includes('BETWEEN')) periodos.push(params!);
+    // Um query builder por consulta, que guarda o que foi pedido. Previstas
+    // devolvem valores fixos; realizadas, zero.
+    previstas = { receita: 0, despesa: 0 };
+    consultas = [];
+    const novoQb = () => {
+      const consulta = { condicoes: [] as string[], params: {} as Record<string, unknown> };
+      consultas.push(consulta);
+      const qb: Record<string, jest.Mock> = {};
+      for (const m of ['select', 'addSelect', 'leftJoin', 'groupBy', 'addGroupBy', 'orderBy']) {
+        qb[m] = jest.fn(() => qb);
+      }
+      qb.where = qb.andWhere = jest.fn((sql: string, params?: Record<string, unknown>) => {
+        consulta.condicoes.push(sql);
+        Object.assign(consulta.params, params);
+        if (sql.includes('BETWEEN')) periodos.push(params as { inicio: string; fim: string });
+        return qb;
+      });
+      qb.getRawOne = jest.fn(async () => {
+        const prevista = consulta.condicoes.includes('t.confirmada = false');
+        const tipo = consulta.params.tipo as 'receita' | 'despesa';
+        return { total: String(prevista ? previstas[tipo] : 0) };
+      });
+      qb.getRawMany = jest.fn(async () => []);
       return qb;
-    });
-    qb.getRawOne = jest.fn(async () => ({ total: '0' }));
-    qb.getRawMany = jest.fn(async () => []);
+    };
 
     service = new DashboardService(
-      { createQueryBuilder: () => qb } as unknown as Repository<Transaction>,
+      { createQueryBuilder: novoQb } as unknown as Repository<Transaction>,
       { find: jest.fn(async () => [{ saldoAtual: '1000' }]) } as unknown as Repository<Account>,
       { countUnread: jest.fn(async () => 0) } as unknown as AlertsService,
     );
@@ -60,5 +77,33 @@ describe('DashboardService — mês do usuário', () => {
       ['setembro', 2026],
     ]);
     expect(periodos.at(-1)).toEqual({ inicio: '2026-09-01', fim: '2026-09-30' });
+  });
+
+  it('totais do mês e evolução só somam realizadas', async () => {
+    await service.getSummary('u1', 'America/Sao_Paulo');
+    await service.getChartEvolution('u1', 2, 'America/Sao_Paulo');
+    await service.getChartCategories('u1', 'America/Sao_Paulo');
+
+    expect(consultas.length).toBeGreaterThan(0);
+    for (const c of consultas) expect(c.condicoes).toContain('t.confirmada = true');
+  });
+
+  it('gráfico de categorias usa a data de competência', async () => {
+    await service.getChartCategories('u1', 'America/Sao_Paulo');
+
+    expect(consultas[0].condicoes.some((c) => c.startsWith('COALESCE(t.dataCompetencia, t.data)'))).toBe(true);
+  });
+
+  it('a projeção soma o que está agendado até o fim do mês', async () => {
+    previstas = { receita: 200, despesa: 700 };
+
+    const projecao = await service.getProjection('u1', 'America/Sao_Paulo');
+
+    // saldo 1000 + 200 agendado entrando − 700 agendado saindo; sem dias restantes.
+    expect(projecao.saldoProjetadoFimMes).toBe(500);
+    expect(projecao.previstoEntradas).toBe(200);
+    expect(projecao.previstoSaidas).toBe(700);
+    const prevista = consultas.find((c) => c.condicoes.includes('t.confirmada = false'))!;
+    expect(prevista.params.ate).toBe('2026-09-30');
   });
 });

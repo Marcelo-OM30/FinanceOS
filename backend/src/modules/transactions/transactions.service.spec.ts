@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { TransactionsService } from './transactions.service';
 import { Transaction } from './entities/transaction.entity';
@@ -47,7 +47,7 @@ describe('TransactionsService — efeito no saldo', () => {
   describe('create', () => {
     it('transferência tira da origem e põe no destino', async () => {
       await service.create(userId, {
-        ...base, tipo: 'transferência', valor: 2000, accountId: 'itau', contaDestinoId: 'nubank',
+        ...base, tipo: 'transferência', valor: 2000, accountId: 'itau', contaDestinoId: 'nubank', confirmada: true,
       });
 
       expect(variacao()).toEqual({ itau: -2000, nubank: 2000 });
@@ -86,7 +86,7 @@ describe('TransactionsService — efeito no saldo', () => {
   describe('remove', () => {
     it('desfaz os dois lados da transferência', async () => {
       transactionsRepository.findOne.mockResolvedValue({
-        id: 't1', tipo: 'transferência', valor: '2000.00', accountId: 'itau', contaDestinoId: 'nubank',
+        id: 't1', tipo: 'transferência', valor: '2000.00', accountId: 'itau', contaDestinoId: 'nubank', confirmada: true,
       });
 
       await service.remove('t1', userId);
@@ -96,7 +96,7 @@ describe('TransactionsService — efeito no saldo', () => {
 
     it('transferência antiga, sem destino, só devolve à origem', async () => {
       transactionsRepository.findOne.mockResolvedValue({
-        id: 't1', tipo: 'transferência', valor: '300.00', accountId: 'itau', contaDestinoId: null,
+        id: 't1', tipo: 'transferência', valor: '300.00', accountId: 'itau', contaDestinoId: null, confirmada: true,
       });
 
       await service.remove('t1', userId);
@@ -108,6 +108,7 @@ describe('TransactionsService — efeito no saldo', () => {
   describe('update', () => {
     const transferencia = () => ({
       id: 't1', tipo: 'transferência', valor: '2000.00', accountId: 'itau', contaDestinoId: 'nubank',
+      confirmada: true,
     });
 
     it('trocar o destino move o crédito de uma conta para a outra', async () => {
@@ -120,7 +121,7 @@ describe('TransactionsService — efeito no saldo', () => {
 
     it('trocar a conta de origem aplica o débito na conta nova', async () => {
       transactionsRepository.findOne.mockResolvedValue({
-        id: 't1', tipo: 'despesa', valor: '50.00', accountId: 'itau', contaDestinoId: null,
+        id: 't1', tipo: 'despesa', valor: '50.00', accountId: 'itau', contaDestinoId: null, confirmada: true,
       });
 
       await service.update('t1', userId, { accountId: 'inter' });
@@ -140,12 +141,90 @@ describe('TransactionsService — efeito no saldo', () => {
 
     it('transferência antiga continua editável sem ganhar destino', async () => {
       transactionsRepository.findOne.mockResolvedValue({
-        id: 't1', tipo: 'transferência', valor: '300.00', accountId: 'itau', contaDestinoId: null,
+        id: 't1', tipo: 'transferência', valor: '300.00', accountId: 'itau', contaDestinoId: null, confirmada: true,
       });
 
       await service.update('t1', userId, { descricao: 'renomeada' });
 
       expect(variacao()).toEqual({ itau: 0 });
+    });
+  });
+
+  describe('previsto × realizado', () => {
+    // Cada leitura devolve uma cópia nova, como o banco faria.
+    const noBanco = (t: Record<string, unknown>) =>
+      transactionsRepository.findOne.mockImplementation(async () => ({ ...t }));
+
+    it('prevista não mexe no saldo ao ser criada', async () => {
+      await service.create(userId, {
+        ...base, tipo: 'despesa', valor: 3000, accountId: 'itau', confirmada: false,
+      });
+
+      expect(manager.increment).not.toHaveBeenCalled();
+      expect(manager.save.mock.calls[0][1].confirmada).toBe(false);
+    });
+
+    it('sem confirmada no payload, nasce realizada', async () => {
+      await service.create(userId, { ...base, tipo: 'despesa', valor: 10, accountId: 'itau' });
+
+      expect(manager.save.mock.calls[0][1].confirmada).toBe(true);
+    });
+
+    it('confirmar aplica o valor no saldo', async () => {
+      noBanco({ id: 't1', tipo: 'despesa', valor: '3000.00', accountId: 'itau', confirmada: false });
+
+      await service.confirmar('t1', userId);
+
+      expect(variacao()).toEqual({ itau: -3000 });
+    });
+
+    it('confirmar transferência prevista move entre as duas contas', async () => {
+      noBanco({
+        id: 't1', tipo: 'transferência', valor: '500.00', accountId: 'itau',
+        contaDestinoId: 'nubank', confirmada: false,
+      });
+
+      await service.confirmar('t1', userId);
+
+      expect(variacao()).toEqual({ itau: -500, nubank: 500 });
+    });
+
+    it('desconfirmar tira o valor do saldo', async () => {
+      noBanco({ id: 't1', tipo: 'receita', valor: '5000.00', accountId: 'itau', confirmada: true });
+
+      await service.desconfirmar('t1', userId);
+
+      expect(variacao()).toEqual({ itau: -5000 });
+    });
+
+    it('confirmar o que já está confirmado dá conflito e não mexe em nada', async () => {
+      noBanco({ id: 't1', tipo: 'despesa', valor: '10.00', accountId: 'itau', confirmada: true });
+
+      await expect(service.confirmar('t1', userId)).rejects.toThrow(ConflictException);
+      expect(manager.increment).not.toHaveBeenCalled();
+    });
+
+    it('desconfirmar o que já está previsto dá conflito', async () => {
+      noBanco({ id: 't1', tipo: 'despesa', valor: '10.00', accountId: 'itau', confirmada: false });
+
+      await expect(service.desconfirmar('t1', userId)).rejects.toThrow(ConflictException);
+    });
+
+    it('editar o valor de uma prevista não mexe no saldo', async () => {
+      noBanco({ id: 't1', tipo: 'despesa', valor: '10.00', accountId: 'itau', confirmada: false });
+
+      await service.update('t1', userId, { valor: 99 });
+
+      expect(manager.increment).not.toHaveBeenCalled();
+    });
+
+    it('excluir uma prevista não mexe no saldo', async () => {
+      noBanco({ id: 't1', tipo: 'despesa', valor: '10.00', accountId: 'itau', confirmada: false });
+
+      await service.remove('t1', userId);
+
+      expect(manager.increment).not.toHaveBeenCalled();
+      expect(manager.remove).toHaveBeenCalled();
     });
   });
 });

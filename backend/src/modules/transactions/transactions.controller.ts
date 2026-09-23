@@ -58,6 +58,22 @@ export class TransactionsController {
     return this.transactionsService.update(id, user.id, dto);
   }
 
+  @Post(':id/confirmar')
+  confirmar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.transactionsService.confirmar(id, user.id);
+  }
+
+  @Post(':id/desconfirmar')
+  desconfirmar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.transactionsService.desconfirmar(id, user.id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(

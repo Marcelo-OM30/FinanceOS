@@ -264,7 +264,7 @@ export default function DashboardPage() {
                   {formatCurrency(projection.saldoProjetadoFimMes)}
                 </p>
               </div>
-              <div className="flex gap-6 text-sm">
+              <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
                 <div>
                   <p className="text-gray-400">Gasto médio/dia</p>
                   <p className="font-semibold text-gray-700">
@@ -277,9 +277,23 @@ export default function DashboardPage() {
                     {projection.diasRestantes} dias
                   </p>
                 </div>
+                {(projection.previstoEntradas > 0 || projection.previstoSaidas > 0) && (
+                  <div>
+                    <p className="text-gray-400">Agendado</p>
+                    <p className="font-semibold text-gray-700">
+                      {projection.previstoEntradas > 0 && (
+                        <span className="text-green-600">+{formatCurrency(projection.previstoEntradas)} </span>
+                      )}
+                      {projection.previstoSaidas > 0 && (
+                        <span className="text-red-500">-{formatCurrency(projection.previstoSaidas)}</span>
+                      )}
+                    </p>
+                  </div>
+                )}
                 <div>
-                  <p className="text-gray-400">Gasto previsto</p>
+                  <p className="text-gray-400">Variação até o fim do mês</p>
                   <p className="font-semibold text-gray-700">
+                    {projection.diferenca > 0 ? '+' : projection.diferenca < 0 ? '-' : ''}
                     {formatCurrency(Math.abs(projection.diferenca))}
                   </p>
                 </div>

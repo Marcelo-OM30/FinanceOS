@@ -45,6 +45,10 @@ export interface Transaction {
   valor: number;
   tipo: 'receita' | 'despesa' | 'transferência';
   data: string;
+  // Só preenchida quando o fato gerador é de outro mês que o pagamento (parcelas).
+  dataCompetencia?: string | null;
+  // true = realizada, false = prevista (agendada; ainda não mexeu no saldo).
+  confirmada: boolean;
   category?: Category;
   account?: Account;
   // Só em transferência. Null nas transferências gravadas antes do destino existir.
@@ -125,6 +129,9 @@ export interface Projection {
   diferenca: number;
   diasRestantes: number;
   taxaDiariaGasto: number;
+  // Transações previstas até o fim do mês, inclusive as atrasadas.
+  previstoEntradas: number;
+  previstoSaidas: number;
 }
 
 export interface PaginatedResponse<T> {

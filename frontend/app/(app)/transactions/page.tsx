@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Header from '@/components/layout/Header';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -17,6 +17,7 @@ import {
   HiChevronLeft,
   HiChevronRight,
   HiTrash,
+  HiCheck,
 } from 'react-icons/hi';
 
 interface TransactionForm {
@@ -28,6 +29,7 @@ interface TransactionForm {
   contaDestinoId: string;
   categoryId: string;
   recorrente: boolean;
+  confirmada: boolean;
 }
 
 const tipoColors: Record<string, 'success' | 'danger' | 'info'> = {
@@ -51,6 +53,7 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [filterTipo, setFilterTipo] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'' | 'true' | 'false'>('');
   const [submitting, setSubmitting] = useState(false);
 
   const LIMIT = 15;
@@ -60,23 +63,36 @@ export default function TransactionsPage() {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<TransactionForm>({
     defaultValues: {
       tipo: 'despesa',
       data: todayISO(),
       recorrente: false,
+      confirmada: true,
     },
   });
 
   const tipo = watch('tipo');
   const isTransferencia = tipo === 'transferência';
 
+  // Data futura sugere "ainda não aconteceu"; o usuário pode desmarcar ou
+  // marcar depois. Só reage a mudança de data, não sobrescreve a escolha feita.
+  const dataForm = watch('data');
+  const ultimaData = useRef(dataForm);
+  useEffect(() => {
+    if (dataForm === ultimaData.current) return;
+    ultimaData.current = dataForm;
+    setValue('confirmada', !dataForm || dataForm <= todayISO());
+  }, [dataForm, setValue]);
+
   const loadTransactions = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
       if (filterTipo) params.tipo = filterTipo;
+      if (filterStatus) params.confirmada = filterStatus;
       const res = await api.get<PaginatedResponse<Transaction>>(
         '/transactions',
         { params }
@@ -86,7 +102,7 @@ export default function TransactionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, filterTipo]);
+  }, [page, filterTipo, filterStatus]);
 
   useEffect(() => {
     loadTransactions();
@@ -107,7 +123,9 @@ export default function TransactionsPage() {
       tipo: 'despesa',
       data: todayISO(),
       recorrente: false,
+      confirmada: true,
     });
+    ultimaData.current = todayISO();
     setModalOpen(true);
   };
 
@@ -125,6 +143,7 @@ export default function TransactionsPage() {
         contaDestinoId: transferencia ? data.contaDestinoId : undefined,
         categoryId: transferencia ? undefined : data.categoryId || undefined,
         recorrencia: data.recorrente ? 'mensal' : 'única',
+        confirmada: data.confirmada,
       });
       setModalOpen(false);
       setPage(1);
@@ -134,6 +153,16 @@ export default function TransactionsPage() {
       alert(e.response?.data?.message ?? 'Erro ao criar transação');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleConfirmar = async (id: string) => {
+    try {
+      await api.post(`/transactions/${id}/confirmar`);
+      await loadTransactions();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      alert(e.response?.data?.message ?? 'Erro ao confirmar transação');
     }
   };
 
@@ -184,6 +213,24 @@ export default function TransactionsPage() {
               {tipo === '' ? 'Todas' : tipoLabels[tipo]}
             </button>
           ))}
+          <span className="w-px bg-gray-200 mx-1" />
+          {([
+            ['', 'Qualquer status'],
+            ['true', 'Realizadas'],
+            ['false', 'Agendadas'],
+          ] as const).map(([status, label]) => (
+            <button
+              key={status}
+              onClick={() => { setFilterStatus(status); setPage(1); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                filterStatus === status
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Table */}
@@ -228,12 +275,20 @@ export default function TransactionsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {transactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={t.id}
+                      className={`hover:bg-gray-50 transition-colors ${t.confirmada ? '' : 'opacity-70'}`}
+                    >
                       <td className="px-4 sm:px-6 py-3.5 text-gray-500 whitespace-nowrap">
                         {formatDate(t.data)}
                       </td>
                       <td className="px-4 sm:px-6 py-3.5 font-medium text-gray-900 max-w-[140px] sm:max-w-[200px] truncate">
                         {t.descricao}
+                        {!t.confirmada && (
+                          <span className="ml-2 align-middle">
+                            <Badge variant="warning">Agendada</Badge>
+                          </span>
+                        )}
                       </td>
                       <td className="hidden md:table-cell px-4 sm:px-6 py-3.5 text-gray-500">
                         {t.category?.nome ?? '—'}
@@ -260,7 +315,16 @@ export default function TransactionsPage() {
                         {t.tipo === 'receita' ? '+' : t.tipo === 'transferência' ? '' : '-'}
                         {formatCurrency(t.valor)}
                       </td>
-                      <td className="px-4 sm:px-6 py-3.5">
+                      <td className="px-4 sm:px-6 py-3.5 whitespace-nowrap">
+                        {!t.confirmada && (
+                          <button
+                            onClick={() => handleConfirmar(t.id)}
+                            className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors"
+                            title="Confirmar: já aconteceu"
+                          >
+                            <HiCheck className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDelete(t.id)}
                           className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
@@ -380,6 +444,14 @@ export default function TransactionsPage() {
               {...register('categoryId')}
             />
           )}
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded border-gray-300"
+              {...register('confirmada')}
+            />
+            Já aconteceu (desmarcado: fica agendada e só entra no saldo quando confirmar)
+          </label>
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input
               type="checkbox"

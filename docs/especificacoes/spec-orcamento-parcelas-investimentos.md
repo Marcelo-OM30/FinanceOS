@@ -32,6 +32,14 @@ reais guardados na aplicação.
 
 ## 1. O conceito que sustenta tudo: previsto × realizado
 
+> **Implementada em 23/09/2026**, com um desvio: a metade de cartão da regra do
+> §1.2 (`cardId IS NOT NULL` não mexe no saldo) **ficou para a Fase 3**. Aplicá-la
+> sem fatura faria compra no cartão não afetar saldo nenhum, sem ainda existir
+> como registrar o pagamento. Hoje compra no cartão ainda debita a conta na hora,
+> como antes. Também: a projeção soma previstas até o fim do mês, inclusive as
+> atrasadas; `chart-categories` e o orçamento só contam realizadas; o orçamento
+> ainda não mostra `comprometido` (fica para a Fase 4, §5.2).
+
 Hoje toda transação é um fato consumado — ela é criada e o saldo da conta muda na hora
 (`transactions.service.ts:79`). Não existe forma de dizer "isso vai acontecer no dia 10".
 
@@ -593,9 +601,9 @@ Precisam de resposta antes da fase correspondente:
 | Fase | Conteúdo | Depende de | Entrega ao usuário |
 |---|---|---|---|
 | **0** | ~~Timezone por usuário; refresh de token no frontend; backup do Postgres~~ — concluída em 23/09/2026 | — | sessão não cai; datas corretas |
-| **1** | Previsto × realizado (§1): `confirmada` nos cálculos, `dataCompetencia` no orçamento, endpoints de confirmar/desconfirmar | 0 | lançar gasto futuro avulso |
+| **1** | ~~Previsto × realizado (§1)~~ — concluída em 23/09/2026, exceto a regra de cartão, que foi para a Fase 3: `confirmada` nos cálculos, `dataCompetencia` no orçamento, endpoints de confirmar/desconfirmar | 0 | lançar gasto futuro avulso |
 | **2** | Parcelamento (§2) | 1 | "comprei em 12x" aparece nos próximos 12 meses |
-| **3** | Fatura de cartão (§3) + tela de cartões (hoje inexistente) | 2 | gasto de crédito no fluxo de caixa certo |
+| **3** | Fatura de cartão (§3) + tela de cartões (hoje inexistente) + regra do §1.2 para `cardId` e backfill do §3.4 | 2 | gasto de crédito no fluxo de caixa certo |
 | **4** | Orçamento: rollover, campos derivados, sugestões (§5) | 1, 2 | **orçamento montado a partir do histórico** |
 | **5** | Recorrências (§4) + projeção do dashboard usando previstos | 1 | contas fixas entram na projeção |
 | **6** | Investimentos (§6) | — | carteira com preço médio e cotação |

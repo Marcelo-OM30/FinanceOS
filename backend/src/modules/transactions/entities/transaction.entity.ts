@@ -14,6 +14,7 @@ import { Category } from '../../categories/entities/category.entity';
 
 @Entity('transactions')
 @Index(['userId', 'data'])
+@Index(['userId', 'confirmada', 'data'])
 @Index(['categoryId'])
 @Index(['accountId'])
 @Index(['contaDestinoId'])
@@ -77,6 +78,8 @@ export class Transaction {
   @Column('boolean', { default: false })
   reconciliada: boolean = false;
 
+  // true = realizada (o dinheiro se moveu); false = prevista (agendada). Só a
+  // realizada mexe no saldo e entra nos totais do mês.
   @Column('boolean', { default: true })
   confirmada: boolean = true;
 

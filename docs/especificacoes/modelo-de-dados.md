@@ -99,7 +99,7 @@ visíveis na mesma lista.
 | `tags` | simple-array | padrão `ARRAY[]::varchar[]` |
 | `numeroNota`, `referenciaExterna` | varchar | opcionais |
 | `reconciliada` | boolean | padrão false — **nunca lido** |
-| `confirmada` | boolean | padrão true — **ignorado nos cálculos** |
+| `confirmada` | boolean | padrão true = realizada; false = prevista, fora do saldo e dos totais. Índice `['userId','confirmada','data']` |
 
 Índices: `['userId','data']`, `['categoryId']`, `['accountId']`.
 
