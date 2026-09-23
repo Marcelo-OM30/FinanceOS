@@ -21,7 +21,7 @@ parte desta spec, mas precisam vir antes:
 
 | # | Item | Por que bloqueia |
 |---|---|---|
-| 1 | **Timezone ignorado** (§8) — todo cálculo de mês usa o relógio do servidor em UTC | Parcela, vencimento, fechamento de fatura e fronteira de mês do orçamento são todos datados. Entre 21h e meia-noite no Brasil o servidor já virou o dia; no último dia do mês, virou o mês. Uma parcela cai na fatura errada e o orçamento fecha no dia errado. Construir projeção sobre esse bug é construir sobre areia |
+| 1 | ~~**Timezone ignorado**~~ — **resolvido em 23/09/2026**; usar `common/datas.ts` para toda data nova (vencimento, fechamento de fatura) (§8) — todo cálculo de mês usa o relógio do servidor em UTC | Parcela, vencimento, fechamento de fatura e fronteira de mês do orçamento são todos datados. Entre 21h e meia-noite no Brasil o servidor já virou o dia; no último dia do mês, virou o mês. Uma parcela cai na fatura errada e o orçamento fecha no dia errado. Construir projeção sobre esse bug é construir sobre areia |
 | 2 | ~~**Sessão cai a cada 15 min**~~ — **resolvido em 22/09/2026** (§2) | Cadastrar uma compra em 12x, revisar 15 sugestões de orçamento ou lançar uma carteira de investimentos são fluxos longos. Perder a sessão no meio deles é inviável |
 
 Recomendação operacional adicional: **configurar backup do Postgres antes da Fase 1**
@@ -592,7 +592,7 @@ Precisam de resposta antes da fase correspondente:
 
 | Fase | Conteúdo | Depende de | Entrega ao usuário |
 |---|---|---|---|
-| **0** | Timezone por usuário; refresh de token no frontend; backup do Postgres | — | sessão não cai; datas corretas |
+| **0** | ~~Timezone por usuário; refresh de token no frontend; backup do Postgres~~ — concluída em 23/09/2026 | — | sessão não cai; datas corretas |
 | **1** | Previsto × realizado (§1): `confirmada` nos cálculos, `dataCompetencia` no orçamento, endpoints de confirmar/desconfirmar | 0 | lançar gasto futuro avulso |
 | **2** | Parcelamento (§2) | 1 | "comprei em 12x" aparece nos próximos 12 meses |
 | **3** | Fatura de cartão (§3) + tela de cartões (hoje inexistente) | 2 | gasto de crédito no fluxo de caixa certo |

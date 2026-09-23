@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsIn, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsIn, MaxLength, IsTimeZone } from 'class-validator';
 
 /**
  * Restringe o que o próprio usuário pode alterar no seu perfil. Sem este DTO o
@@ -27,8 +27,9 @@ export class UpdateProfileDto {
   @MaxLength(3)
   moedaPadrao?: string;
 
+  // Fuso IANA (ex.: America/Sao_Paulo). Usado em todo cálculo de "hoje" e de mês.
   @IsOptional()
-  @IsString()
+  @IsTimeZone()
   @MaxLength(50)
   timezone?: string;
 

@@ -27,12 +27,12 @@ export class DashboardController {
 
   @Get('summary')
   getSummary(@CurrentUser() user: User) {
-    return this.dashboardService.getSummary(user.id);
+    return this.dashboardService.getSummary(user.id, user.timezone);
   }
 
   @Get('chart-categories')
   getChartCategories(@CurrentUser() user: User) {
-    return this.dashboardService.getChartCategories(user.id);
+    return this.dashboardService.getChartCategories(user.id, user.timezone);
   }
 
   @Get('chart-evolution')
@@ -40,11 +40,11 @@ export class DashboardController {
     @Query() query: EvolutionQuery,
     @CurrentUser() user: User,
   ) {
-    return this.dashboardService.getChartEvolution(user.id, query.meses ?? 6);
+    return this.dashboardService.getChartEvolution(user.id, query.meses ?? 6, user.timezone);
   }
 
   @Get('projection')
   getProjection(@CurrentUser() user: User) {
-    return this.dashboardService.getProjection(user.id);
+    return this.dashboardService.getProjection(user.id, user.timezone);
   }
 }

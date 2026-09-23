@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Transaction } from '../transactions/entities/transaction.entity';
 import { Account } from '../accounts/entities/account.entity';
 import { AlertsService } from './alerts.service';
+import { deslocarMes, diasNoMes, hojeNoFuso, limitesDoMes, partesDaData } from '../../common/datas';
 
 @Injectable()
 export class DashboardService {
@@ -15,14 +16,9 @@ export class DashboardService {
     private alertsService: AlertsService,
   ) {}
 
-  async getSummary(userId: string) {
-    const hoje = new Date();
-    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-      .toISOString()
-      .split('T')[0];
-    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
-      .toISOString()
-      .split('T')[0];
+  async getSummary(userId: string, fuso?: string) {
+    const { ano, mes } = partesDaData(hojeNoFuso(fuso));
+    const { inicio: inicioMes, fim: fimMes } = limitesDoMes(ano, mes);
 
     const [accounts, entradas, saidas, alertasNaoLidos] = await Promise.all([
       this.accountsRepository.find({ where: { userId, ativo: true } }),
@@ -45,14 +41,9 @@ export class DashboardService {
     };
   }
 
-  async getChartCategories(userId: string) {
-    const hoje = new Date();
-    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-      .toISOString()
-      .split('T')[0];
-    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
-      .toISOString()
-      .split('T')[0];
+  async getChartCategories(userId: string, fuso?: string) {
+    const { ano, mes } = partesDaData(hojeNoFuso(fuso));
+    const { inicio: inicioMes, fim: fimMes } = limitesDoMes(ano, mes);
 
     const rows = await this.transactionsRepository
       .createQueryBuilder('t')
@@ -81,7 +72,7 @@ export class DashboardService {
     return { data, total };
   }
 
-  async getChartEvolution(userId: string, meses: number = 6) {
+  async getChartEvolution(userId: string, meses: number = 6, fuso?: string) {
     const resultado: {
       mes: string;
       mesNumero: number;
@@ -91,14 +82,11 @@ export class DashboardService {
       saldo: number;
     }[] = [];
 
-    const hoje = new Date();
+    const atual = partesDaData(hojeNoFuso(fuso));
 
     for (let i = meses - 1; i >= 0; i--) {
-      const ref = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      const ano = ref.getFullYear();
-      const mes = ref.getMonth() + 1;
-      const inicio = new Date(ano, mes - 1, 1).toISOString().split('T')[0];
-      const fim = new Date(ano, mes, 0).toISOString().split('T')[0];
+      const { ano, mes } = deslocarMes(atual.ano, atual.mes, -i);
+      const { inicio, fim } = limitesDoMes(ano, mes);
 
       const [receitas, despesas] = await Promise.all([
         this.sumTransactions(userId, 'receita', inicio, fim),
@@ -106,7 +94,10 @@ export class DashboardService {
       ]);
 
       resultado.push({
-        mes: ref.toLocaleString('pt-BR', { month: 'long' }),
+        mes: new Date(Date.UTC(ano, mes - 1, 1)).toLocaleString('pt-BR', {
+          month: 'long',
+          timeZone: 'UTC',
+        }),
         mesNumero: mes,
         ano,
         receitas,
@@ -118,16 +109,11 @@ export class DashboardService {
     return { data: resultado };
   }
 
-  async getProjection(userId: string) {
-    const hoje = new Date();
-    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-      .toISOString()
-      .split('T')[0];
-    const hojeStr = hoje.toISOString().split('T')[0];
-    const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-    const diasTotais = ultimoDia.getDate();
-    const diaAtual = hoje.getDate();
-    const diasRestantes = diasTotais - diaAtual;
+  async getProjection(userId: string, fuso?: string) {
+    const hojeStr = hojeNoFuso(fuso);
+    const { ano, mes, dia: diaAtual } = partesDaData(hojeStr);
+    const { inicio: inicioMes } = limitesDoMes(ano, mes);
+    const diasRestantes = diasNoMes(ano, mes) - diaAtual;
 
     const [accounts, saidasAteHoje] = await Promise.all([
       this.accountsRepository.find({ where: { userId, ativo: true } }),

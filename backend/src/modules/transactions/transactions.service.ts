@@ -10,6 +10,7 @@ import { Account } from '../accounts/entities/account.entity';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
+import { limitesDoMes } from '../../common/datas';
 
 @Injectable()
 export class TransactionsService {
@@ -191,8 +192,7 @@ export class TransactionsService {
     mes: number,
     ano: number,
   ): Promise<number> {
-    const dataInicio = new Date(ano, mes - 1, 1);
-    const dataFim = new Date(ano, mes, 0);
+    const { inicio, fim } = limitesDoMes(ano, mes);
 
     const result = await this.transactionsRepository
       .createQueryBuilder('t')
@@ -200,10 +200,7 @@ export class TransactionsService {
       .where('t.userId = :userId', { userId })
       .andWhere('t.categoryId = :categoryId', { categoryId })
       .andWhere('t.tipo = :tipo', { tipo: 'despesa' })
-      .andWhere('t.data BETWEEN :inicio AND :fim', {
-        inicio: dataInicio.toISOString().split('T')[0],
-        fim: dataFim.toISOString().split('T')[0],
-      })
+      .andWhere('t.data BETWEEN :inicio AND :fim', { inicio, fim })
       .getRawOne<{ total: string }>();
 
     return parseFloat(result?.total ?? '0');

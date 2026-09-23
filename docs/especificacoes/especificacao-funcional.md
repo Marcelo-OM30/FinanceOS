@@ -163,10 +163,14 @@ atual`, e projeta `saldoAtual - (taxaDiaria × dias restantes)`. Como só soma
 despesas, **a projeção nunca é maior que o saldo atual** — não há previsão de
 receitas futuras.
 
-**Lacuna:** o mês é calculado com o relógio **do servidor** (UTC em produção),
-enquanto o usuário está em `America/Sao_Paulo`. Entre 21h e a meia-noite, o
-servidor já virou o dia — e, no último dia do mês, virou o mês. O campo
-`timezone` do usuário existe no banco e não é consultado em nenhum cálculo.
+**Fuso horário** (resolvido em 23/09/2026): "hoje" e "mês atual" saem do
+`timezone` do usuário (padrão `America/Sao_Paulo`), via
+`backend/src/common/datas.ts`, e não mais do relógio do servidor, que roda em
+UTC — entre 21h e a meia-noite o servidor já virou o dia, e no último dia do
+mês, o mês. Vale para resumo, gráficos, projeção, dias restantes das metas e a
+data padrão de um progresso de meta (antes era `CURRENT_DATE` do banco, também
+em UTC). Fuso inválido cai no padrão; `PATCH /users/profile` recusa fuso que
+não seja IANA. Não há tela para trocar o fuso (§11).
 
 ## 9. Alertas (`alerts`)
 
@@ -216,7 +220,7 @@ interface — e, como visto em §8, o timezone não é usado nem internamente.
 
 7. Chave de criptografia com default hardcoded (§10)
 8. Saldo por efeito colateral, sem reconciliação (§3)
-9. Cálculos de mês em UTC, ignorando o timezone do usuário (§8)
+9. ~~Cálculos de mês em UTC, ignorando o timezone do usuário (§8)~~ — resolvido em 23/09/2026
 
 ---
 

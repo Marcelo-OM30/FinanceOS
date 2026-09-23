@@ -34,7 +34,7 @@ erDiagram
 | `avatarUrl`, `telefone`, `documento` | varchar | opcionais |
 | `dataNascimento` | date | opcional |
 | `moedaPadrao` | varchar | padrão `BRL` — **nunca lido pela aplicação** |
-| `timezone` | varchar | padrão `America/Sao_Paulo` — **nunca lido** |
+| `timezone` | varchar | padrão `America/Sao_Paulo` — define "hoje" e "mês atual" em todos os cálculos |
 | `preferenciaTema` | varchar | padrão `light` — **nunca lido** |
 | `ativo` | boolean | padrão true |
 | `emailVerificado` | boolean | padrão false — **nunca muda** |

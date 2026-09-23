@@ -10,6 +10,7 @@ import { GoalProgress } from './entities/goal-progress.entity';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 import { AddProgressDto } from './dto/add-progress.dto';
+import { comoData, diasEntre, hojeNoFuso } from '../../common/datas';
 
 export interface GoalWithStats extends Goal {
   percentualProgresso: number;
@@ -26,25 +27,25 @@ export class GoalsService {
     private progressRepository: Repository<GoalProgress>,
   ) {}
 
-  async findAll(userId: string): Promise<GoalWithStats[]> {
+  async findAll(userId: string, fuso?: string): Promise<GoalWithStats[]> {
     const goals = await this.goalsRepository.find({
       where: { userId },
       relations: ['category'],
       order: { dataFim: 'ASC' },
     });
-    return goals.map((g) => this.enrichWithStats(g));
+    return goals.map((g) => this.enrichWithStats(g, fuso));
   }
 
-  async findOne(id: string, userId: string): Promise<GoalWithStats> {
+  async findOne(id: string, userId: string, fuso?: string): Promise<GoalWithStats> {
     const goal = await this.goalsRepository.findOne({
       where: { id, userId },
       relations: ['category', 'progresses'],
     });
     if (!goal) throw new NotFoundException('Meta não encontrada');
-    return this.enrichWithStats(goal);
+    return this.enrichWithStats(goal, fuso);
   }
 
-  async create(userId: string, dto: CreateGoalDto): Promise<GoalWithStats> {
+  async create(userId: string, dto: CreateGoalDto, fuso?: string): Promise<GoalWithStats> {
     if (new Date(dto.dataFim) <= new Date(dto.dataInicio)) {
       throw new BadRequestException('dataFim deve ser posterior a dataInicio');
     }
@@ -60,10 +61,10 @@ export class GoalsService {
     });
 
     const saved = await this.goalsRepository.save(goal);
-    return this.enrichWithStats(saved);
+    return this.enrichWithStats(saved, fuso);
   }
 
-  async update(id: string, userId: string, dto: UpdateGoalDto): Promise<GoalWithStats> {
+  async update(id: string, userId: string, dto: UpdateGoalDto, fuso?: string): Promise<GoalWithStats> {
     const goal = await this.goalsRepository.findOne({ where: { id, userId } });
     if (!goal) throw new NotFoundException('Meta não encontrada');
 
@@ -73,7 +74,7 @@ export class GoalsService {
 
     Object.assign(goal, dto);
     const saved = await this.goalsRepository.save(goal);
-    return this.enrichWithStats(saved);
+    return this.enrichWithStats(saved, fuso);
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -84,7 +85,7 @@ export class GoalsService {
 
   // ─── Progresso ───────────────────────────────────────────────────────────────
 
-  async addProgress(id: string, userId: string, dto: AddProgressDto): Promise<GoalWithStats> {
+  async addProgress(id: string, userId: string, dto: AddProgressDto, fuso?: string): Promise<GoalWithStats> {
     const goal = await this.goalsRepository.findOne({ where: { id, userId } });
     if (!goal) throw new NotFoundException('Meta não encontrada');
 
@@ -103,7 +104,9 @@ export class GoalsService {
       goalId: goal.id,
       valorAdicionado: dto.valorAdicionado,
       percentualProgresso: percentual,
-      ...(dto.dataRegistro ? { dataRegistro: dto.dataRegistro as any } : {}),
+      // Sem data explícita, "hoje" do usuário — o DEFAULT CURRENT_DATE da coluna
+      // usaria o relógio UTC do banco.
+      dataRegistro: (dto.dataRegistro ?? hojeNoFuso(fuso)) as any,
     });
     await this.progressRepository.save(progress);
 
@@ -114,7 +117,7 @@ export class GoalsService {
     }
 
     const saved = await this.goalsRepository.save(goal);
-    return this.enrichWithStats(saved);
+    return this.enrichWithStats(saved, fuso);
   }
 
   async findProgress(id: string, userId: string): Promise<GoalProgress[]> {
@@ -129,22 +132,17 @@ export class GoalsService {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  private enrichWithStats(goal: Goal): GoalWithStats {
+  private enrichWithStats(goal: Goal, fuso?: string): GoalWithStats {
     const percentualProgresso = goal.valorAlvo > 0
       ? Math.min(Math.round((Number(goal.valorAtual) / Number(goal.valorAlvo)) * 100), 100)
       : 0;
 
-    const hoje = new Date();
-    const dataFim = new Date(goal.dataFim);
-    const diasRestantes = Math.max(
-      0,
-      Math.ceil((dataFim.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)),
-    );
+    const hoje = hojeNoFuso(fuso);
+    const dataFim = comoData(goal.dataFim);
+    const diasRestantes = Math.max(0, diasEntre(hoje, dataFim));
 
     // Em risco: ativa, menos de 30% do tempo restante, menos de 80% do valor atingido
-    const totalDias = Math.ceil(
-      (dataFim.getTime() - new Date(goal.dataInicio).getTime()) / (1000 * 60 * 60 * 24),
-    );
+    const totalDias = diasEntre(comoData(goal.dataInicio), dataFim);
     const percentualTempo = totalDias > 0 ? ((totalDias - diasRestantes) / totalDias) * 100 : 100;
     const emRisco =
       goal.status === 'ativa' &&

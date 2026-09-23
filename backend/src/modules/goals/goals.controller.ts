@@ -26,7 +26,7 @@ export class GoalsController {
 
   @Get()
   findAll(@CurrentUser() user: User) {
-    return this.goalsService.findAll(user.id);
+    return this.goalsService.findAll(user.id, user.timezone);
   }
 
   @Get(':id')
@@ -34,7 +34,7 @@ export class GoalsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: User,
   ) {
-    return this.goalsService.findOne(id, user.id);
+    return this.goalsService.findOne(id, user.id, user.timezone);
   }
 
   @Post()
@@ -42,7 +42,7 @@ export class GoalsController {
     @Body() dto: CreateGoalDto,
     @CurrentUser() user: User,
   ) {
-    return this.goalsService.create(user.id, dto);
+    return this.goalsService.create(user.id, dto, user.timezone);
   }
 
   @Patch(':id')
@@ -51,7 +51,7 @@ export class GoalsController {
     @Body() dto: UpdateGoalDto,
     @CurrentUser() user: User,
   ) {
-    return this.goalsService.update(id, user.id, dto);
+    return this.goalsService.update(id, user.id, dto, user.timezone);
   }
 
   @Delete(':id')
@@ -79,6 +79,6 @@ export class GoalsController {
     @Body() dto: AddProgressDto,
     @CurrentUser() user: User,
   ) {
-    return this.goalsService.addProgress(id, user.id, dto);
+    return this.goalsService.addProgress(id, user.id, dto, user.timezone);
   }
 }
