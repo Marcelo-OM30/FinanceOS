@@ -188,10 +188,8 @@ CRUD completo no backend, com o número do cartão criptografado em AES-256-CBC
 antes de gravar (`numeroCriptografado`) e apenas os `ultimosDigitos` em claro.
 
 **Lacunas:** (a) não existe nenhuma tela de cartões no frontend — o módulo só é
-alcançável via API; (b) a chave de criptografia cai em um **default hardcoded**
-(`'default-encryption-key-change-in-prod'`) quando `CARD_ENCRYPTION_KEY` não está
-definida, o que significa que um banco vazado é decifrável por qualquer um com
-acesso ao código-fonte.
+alcançável via API; (b) ~~a chave de criptografia caía em um default hardcoded~~ — desde
+23/09/2026 o backend não sobe sem `CARD_ENCRYPTION_KEY` válida.
 
 ## 11. Perfil do usuário
 
@@ -218,7 +216,7 @@ interface — e, como visto em §8, o timezone não é usado nem internamente.
 
 **Risco**
 
-7. Chave de criptografia com default hardcoded (§10)
+7. ~~Chave de criptografia com default hardcoded (§10)~~ — resolvido em 23/09/2026
 8. Saldo por efeito colateral, sem reconciliação (§3)
 9. ~~Cálculos de mês em UTC, ignorando o timezone do usuário (§8)~~ — resolvido em 23/09/2026
 

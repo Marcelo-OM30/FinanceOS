@@ -14,6 +14,32 @@ import { UpdateAccountDto } from './dto/update-account.dto';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 
+// Valores que estão ou estiveram no repositório: quem tem o código decifra.
+const CHAVES_PUBLICAS = [
+  'default-encryption-key-change-in-prod',
+  'change_this_to_a_long_random_string_in_production',
+];
+
+/**
+ * Sem chave válida o boot falha. Antes havia um default hardcoded: se a
+ * variável sumisse do ambiente, os cartões passavam a ser cifrados com uma
+ * chave pública, sem nenhum aviso. Trocar a chave de um ambiente com cartões
+ * já salvos os torna indecifráveis — ela precisa ter cópia fora do Railway.
+ */
+export function chaveDeCriptografia(): string {
+  const chave = process.env.CARD_ENCRYPTION_KEY;
+  if (!chave) {
+    throw new Error('CARD_ENCRYPTION_KEY não configurado');
+  }
+  if (CHAVES_PUBLICAS.includes(chave)) {
+    throw new Error('CARD_ENCRYPTION_KEY usa um valor de exemplo publicado no repositório');
+  }
+  if (chave.length < 32) {
+    throw new Error('CARD_ENCRYPTION_KEY precisa ter pelo menos 32 caracteres');
+  }
+  return chave;
+}
+
 @Injectable()
 export class AccountsService {
   // AES-256-CBC key derivado da env var CARD_ENCRYPTION_KEY
@@ -25,8 +51,7 @@ export class AccountsService {
     @InjectRepository(Card)
     private cardsRepository: Repository<Card>,
   ) {
-    const secret = process.env.CARD_ENCRYPTION_KEY || 'default-encryption-key-change-in-prod';
-    this.encryptionKey = scryptSync(secret, 'salt', 32);
+    this.encryptionKey = scryptSync(chaveDeCriptografia(), 'salt', 32);
   }
 
   // ─── Accounts ───────────────────────────────────────────────────────────────

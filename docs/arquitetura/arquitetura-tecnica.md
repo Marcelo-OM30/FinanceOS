@@ -127,7 +127,7 @@ eliminaria essa pegadinha e é uma melhoria recomendada.
 | `DATABASE_SSL` | backend | `true` fora da rede interna; ver `config/database-connection.ts` |
 | `JWT_SECRET`, `JWT_EXPIRATION` | backend | |
 | `JWT_REFRESH_SECRET` | backend | segredo separado do access token |
-| `CARD_ENCRYPTION_KEY` | backend | **tem default hardcoded se ausente** — ver risco abaixo |
+| `CARD_ENCRYPTION_KEY` | backend | obrigatória, mín. 32 caracteres; sem ela o boot falha. Trocá-la torna ilegíveis os cartões já salvos |
 | `FRONTEND_URL` | backend | origem liberada no CORS |
 | `NODE_ENV` | backend | controla `synchronize` e logging do TypeORM |
 | `PORT` | ambos | injetada pelo Railway (8080) |
@@ -140,10 +140,10 @@ eliminaria essa pegadinha e é uma melhoria recomendada.
 
 **Segurança**
 
-1. `CARD_ENCRYPTION_KEY` cai em `'default-encryption-key-change-in-prod'` quando
-   não definida — números de cartão de um banco vazado ficam decifráveis por
-   qualquer um com acesso ao código. Deveria falhar o boot em vez de assumir
-   default.
+1. ~~`CARD_ENCRYPTION_KEY` com default hardcoded~~ — resolvido em 23/09/2026:
+   o boot falha se a chave faltar, for curta ou for um dos valores de exemplo
+   publicados no repositório. Continua valendo: o salt do `scrypt` é fixo, e a
+   chave só existe nas variáveis do Railway — precisa de cópia fora dele.
 2. Token em `localStorage`, exposto a XSS.
 3. 38 vulnerabilidades reportadas por `npm audit` (4 baixas, 16 moderadas, 17
    altas, 1 crítica), sem triagem.
@@ -168,7 +168,7 @@ eliminaria essa pegadinha e é uma melhoria recomendada.
 ## Próximos passos sugeridos, em ordem
 
 1. Backup automático do Postgres.
-2. Falhar o boot se `CARD_ENCRYPTION_KEY` não estiver definida.
+2. ~~Falhar o boot se `CARD_ENCRYPTION_KEY` não estiver definida.~~ Feito em 23/09/2026.
 3. Implementar o refresh de token no frontend.
 4. Gerar os tipos do frontend a partir do backend (OpenAPI via `@nestjs/swagger`
    + geração de cliente) e eliminar a transcrição manual.
