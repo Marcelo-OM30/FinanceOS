@@ -1,6 +1,7 @@
 import { Repository } from 'typeorm';
 import { DashboardService } from './dashboard.service';
 import { AlertsService } from './alerts.service';
+import { InvestmentsService } from '../investments/investments.service';
 import { Transaction } from '../transactions/entities/transaction.entity';
 import { Account } from '../accounts/entities/account.entity';
 
@@ -47,6 +48,7 @@ describe('DashboardService — mês do usuário', () => {
       { createQueryBuilder: novoQb } as unknown as Repository<Transaction>,
       { find: jest.fn(async () => [{ saldoAtual: '1000' }]) } as unknown as Repository<Account>,
       { countUnread: jest.fn(async () => 0) } as unknown as AlertsService,
+      { valorDeMercado: jest.fn(async () => 0) } as unknown as InvestmentsService,
     );
   });
 

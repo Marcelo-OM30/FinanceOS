@@ -14,6 +14,8 @@ import { GoalsModule } from './modules/goals/goals.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { InstallmentsModule } from './modules/installments/installments.module';
 import { CardInvoicesModule } from './modules/card-invoices/card-invoices.module';
+import { RecurringModule } from './modules/recurring/recurring.module';
+import { InvestmentsModule } from './modules/investments/investments.module';
 
 // Database configuration
 import { databaseConfig } from './config/database.config';
@@ -50,6 +52,8 @@ import { HealthController } from './common/health.controller';
     DashboardModule,
     InstallmentsModule,
     CardInvoicesModule,
+    RecurringModule,
+    InvestmentsModule,
   ],
   controllers: [HealthController],
 })

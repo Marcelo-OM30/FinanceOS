@@ -16,6 +16,7 @@ import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
+import { ConfirmarTransactionDto } from './dto/confirmar-transaction.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
@@ -61,9 +62,10 @@ export class TransactionsController {
   @Post(':id/confirmar')
   confirmar(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConfirmarTransactionDto,
     @CurrentUser() user: User,
   ) {
-    return this.transactionsService.confirmar(id, user.id);
+    return this.transactionsService.confirmar(id, user.id, dto?.valor);
   }
 
   @Post(':id/desconfirmar')

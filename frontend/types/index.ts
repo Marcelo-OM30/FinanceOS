@@ -74,6 +74,8 @@ export interface Transaction {
   // Compra no cartão: `data` é o vencimento da fatura; a compra é dataCompetencia.
   cardId?: string | null;
   cardInvoiceId?: string | null;
+  // Ocorrência de uma conta recorrente.
+  recurringRuleId?: string | null;
   category?: Category;
   account?: Account;
   // Só em transferência. Null nas transferências gravadas antes do destino existir.
@@ -107,6 +109,31 @@ export interface Installment {
   proximoVencimento: string | null;
   // Só em GET /installments/:id.
   parcelas?: Transaction[];
+}
+
+export interface RecurringRule {
+  id: string;
+  tipo: 'receita' | 'despesa';
+  descricao: string;
+  // decimal: chega como texto.
+  valorEstimado: string;
+  valorVariavel: boolean;
+  frequencia: 'semanal' | 'mensal' | 'anual';
+  diaDoMes?: number | null;
+  mesDoAno?: number | null;
+  diaDaSemana?: number | null;
+  dataInicio: string;
+  dataFim?: string | null;
+  ativa: boolean;
+  accountId: string;
+  cardId?: string | null;
+  account?: Account;
+  card?: Card | null;
+  category?: Category | null;
+  datasPuladas: string[];
+  // Calculados na leitura.
+  proximaOcorrencia: string | null;
+  valorPrevisto: number;
 }
 
 export type Rollover = 'nenhum' | 'acumula' | 'ajustado';
@@ -179,6 +206,58 @@ export interface DashboardSummary {
   totalSaidasMes: number;
   resultadoMes: number;
   alertasNaoLidos: number;
+  // Ativos a valor de mercado; saldoConsolidado é só dinheiro em conta.
+  patrimonioInvestido: number;
+}
+
+export type TipoAtivo = 'acao' | 'fii' | 'etf' | 'bdr' | 'tesouro' | 'cripto' | 'renda_fixa';
+
+export interface Asset {
+  id: string;
+  ticker: string;
+  nome: string;
+  tipo: TipoAtivo;
+  fonteCotacao: 'brapi' | 'manual';
+  userId?: string | null;
+}
+
+export interface InvestmentTransaction {
+  id: string;
+  tipo: 'compra' | 'venda' | 'dividendo' | 'jcp' | 'rendimento' | 'taxa';
+  // decimais: chegam como texto. Em provento e taxa, quantidade é 0 e
+  // precoUnitario é o valor.
+  quantidade: string;
+  precoUnitario: string;
+  taxas: string;
+  data: string;
+  asset?: Asset;
+  account?: Account;
+}
+
+export interface PosicaoAtivo {
+  asset: Asset;
+  quantidade: number;
+  precoMedio: number;
+  custoTotal: number;
+  cotacao: number | null;
+  dataCotacao: string | null;
+  semCotacao: boolean;
+  valorMercado: number;
+  resultadoNaoRealizado: number;
+  rentabilidadePercentual: number;
+  lucroRealizado: number;
+  proventos: number;
+}
+
+export interface Carteira {
+  data: PosicaoAtivo[];
+  totais: {
+    custoTotal: number;
+    valorMercado: number;
+    resultadoNaoRealizado: number;
+    lucroRealizado: number;
+    proventos: number;
+  };
 }
 
 export interface ChartCategoryItem {

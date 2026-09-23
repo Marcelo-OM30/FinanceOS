@@ -33,6 +33,15 @@ interface TransactionForm {
   confirmada: boolean;
 }
 
+/** Mesmo dia no mês seguinte; 31/01 → 28/02. */
+function mesSeguinte(data: string): string {
+  const [ano, mes, dia] = data.split('-').map(Number);
+  const alvo = new Date(Date.UTC(ano, mes, 1));
+  const ultimo = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
+  alvo.setUTCDate(Math.min(dia, ultimo));
+  return alvo.toISOString().slice(0, 10);
+}
+
 const tipoColors: Record<string, 'success' | 'danger' | 'info'> = {
   receita: 'success',
   despesa: 'danger',
@@ -152,9 +161,22 @@ export default function TransactionsPage() {
         cardId: cartao?.id,
         contaDestinoId: transferencia ? data.contaDestinoId : undefined,
         categoryId: transferencia ? undefined : data.categoryId || undefined,
-        recorrencia: data.recorrente ? 'mensal' : 'única',
         confirmada: cartao ? undefined : data.confirmada,
       });
+      // "Repetir todo mês": esta fica como está e a regra cuida dos próximos
+      // meses, a partir do mês seguinte, no mesmo dia.
+      if (data.recorrente && !transferencia) {
+        await api.post('/recurring-rules', {
+          tipo: data.tipo,
+          descricao: data.descricao,
+          valorEstimado: parseFloat(data.valor),
+          frequencia: 'mensal',
+          dataInicio: mesSeguinte(data.data),
+          accountId: cartao ? undefined : data.accountId,
+          cardId: cartao?.id,
+          categoryId: data.categoryId || undefined,
+        });
+      }
       setModalOpen(false);
       setPage(1);
       await loadTransactions();
@@ -166,9 +188,21 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleConfirmar = async (id: string) => {
+  const handleConfirmar = async (t: Transaction) => {
+    // Recorrente é estimativa (a luz de cada mês é uma): pergunta o valor real.
+    let valor: number | undefined;
+    if (t.recurringRuleId) {
+      const resposta = prompt(`Valor real de "${t.descricao}":`, String(Number(t.valor)));
+      if (resposta === null) return;
+      const n = parseFloat(resposta.replace(',', '.'));
+      if (!(n > 0)) {
+        alert('Valor inválido');
+        return;
+      }
+      valor = Math.round(n * 100) / 100;
+    }
     try {
-      await api.post(`/transactions/${id}/confirmar`);
+      await api.post(`/transactions/${t.id}/confirmar`, valor === undefined ? {} : { valor });
       await loadTransactions();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
@@ -333,7 +367,7 @@ export default function TransactionsPage() {
                       <td className="px-4 sm:px-6 py-3.5 whitespace-nowrap">
                         {!t.confirmada && !t.cardId && (
                           <button
-                            onClick={() => handleConfirmar(t.id)}
+                            onClick={() => handleConfirmar(t)}
                             className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors"
                             title="Confirmar: já aconteceu"
                           >
@@ -492,14 +526,16 @@ export default function TransactionsPage() {
             />
             Já aconteceu (desmarcado: fica agendada e só entra no saldo quando confirmar)
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input
-              type="checkbox"
-              className="rounded border-gray-300"
-              {...register('recorrente')}
-            />
-            Transação recorrente
-          </label>
+          {!isTransferencia && (
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                className="rounded border-gray-300"
+                {...register('recorrente')}
+              />
+              Repetir todo mês (cria uma conta recorrente a partir do mês que vem)
+            </label>
+          )}
 
           <div className="flex gap-3 pt-2">
             <Button

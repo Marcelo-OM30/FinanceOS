@@ -67,6 +67,30 @@ erDiagram
 | `limite`, `limiteUtilizado` | numeric(15,2) | `limiteUtilizado` **nunca é atualizado** |
 | `vencimentoFatura`, `dataFechamentoFatura` | int | dia do mês (1 a 28) |
 
+## recurring_rules
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `userId`, `accountId` | uuid | `ON DELETE CASCADE` |
+| `cardId` | uuid | no cartão, `ON DELETE CASCADE` |
+| `categoryId` | uuid | `ON DELETE SET NULL` |
+| `descricao`, `tipo` | varchar | `receita` \| `despesa` |
+| `valorEstimado` | numeric(15,2) | |
+| `valorVariavel` | boolean | previsão pela média das 3 últimas confirmadas |
+| `frequencia` | varchar(20) | `semanal` \| `mensal` \| `anual` |
+| `diaDoMes`, `mesDoAno`, `diaDaSemana` | int | conforme a frequência |
+| `dataInicio`, `dataFim` | date | `dataFim` nulo = sem fim |
+| `ativa` | boolean | |
+| `datasPuladas` | text (simple-array) | ocorrências excluídas pelo usuário |
+
+## assets, investment_transactions, asset_quotes
+
+| Tabela | Colunas | Notas |
+|---|---|---|
+| `assets` | `userId` (nulo = global), `ticker`, `nome`, `tipo`, `moeda`, `fonteCotacao` (`brapi` \| `manual`) | índice `['userId','ticker']` |
+| `investment_transactions` | `userId`, `accountId`, `assetId`, `tipo`, `quantidade` numeric(18,8), `precoUnitario` numeric(15,6), `taxas`, `data` | mexe no `saldoAtual` da conta (o caixa); posição não é gravada |
+| `asset_quotes` | PK (`assetId`, `data`), `preco` numeric(15,6) | a mais recente vale |
+
 ## card_invoices
 
 | Coluna | Tipo | Notas |
@@ -107,9 +131,7 @@ visíveis na mesma lista.
 | `data` | date | data do fato |
 | `dataCompetencia` | date | regime de competência — **sem uso na UI** |
 | `recurso` | varchar | padrão `manual` |
-| `recorrencia` | varchar(20) | gravado, **não gera ocorrências** |
-| `recorrenciaGrupoId` | uuid | **nunca preenchido** |
-| `proximoVencimento` | date | **nunca preenchido** |
+| `recorrencia` | varchar(20) | só rótulo; quem gera ocorrências é `recurring_rules` (`recorrenciaGrupoId` e `proximoVencimento` removidas em 23/09/2026) |
 | `tags` | simple-array | padrão `ARRAY[]::varchar[]` |
 | `numeroNota`, `referenciaExterna` | varchar | opcionais |
 | `reconciliada` | boolean | padrão false — **nunca lido** |
@@ -118,6 +140,7 @@ visíveis na mesma lista.
 | `installmentPurchaseId` | uuid | parcela de um parcelamento, `ON DELETE CASCADE` |
 | `numeroParcela` | int | 1..N, só em parcela |
 | `cardInvoiceId` | uuid | fatura da compra no cartão, `ON DELETE SET NULL` |
+| `recurringRuleId` | uuid | ocorrência de conta recorrente, `ON DELETE SET NULL`; único com `dataCompetencia` |
 
 Índices: `['userId','data']`, `['userId','confirmada','data']`, `['categoryId']`,
 `['accountId']`, `['contaDestinoId']`, `['installmentPurchaseId']`, `['cardInvoiceId']`.

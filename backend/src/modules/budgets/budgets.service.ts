@@ -146,11 +146,12 @@ export class BudgetsService {
     const fimJanela = limitesDoMes(ultimoFechado.ano, ultimoFechado.mes).fim;
     const alvo = limitesDoMes(ano, mes);
 
-    const [despesas, receitas, comprometidos, existentes] = await Promise.all([
+    const [despesas, receitas, comprometidos, existentes, receitaRecorrente] = await Promise.all([
       this.somaPorCategoriaEMes(userId, 'despesa', inicio12, fimJanela),
       this.somaPorCategoriaEMes(userId, 'receita', limitesDoMes(meses6[0].ano, meses6[0].mes).inicio, fimJanela),
       this.somaPorCategoria(userId, alvo.inicio, alvo.fim, false),
       this.budgetsRepository.find({ where: { userId, mes, ano } }),
+      this.receitaRecorrenteDoMes(userId, alvo.inicio, alvo.fim),
     ]);
 
     const idsCategorias = new Set<string>([
@@ -193,13 +194,16 @@ export class BudgetsService {
       .filter((s) => s.sugerido > 0 || s.orcamentoExistente)
       .sort((a, b) => b.sugerido - a.sugerido);
 
-    // Renda: mediana das receitas mensais da janela. Receitas recorrentes
-    // entram quando existirem (Fase 5).
+    // Renda: o maior entre a mediana das receitas da janela e as receitas
+    // recorrentes já previstas para o mês. Somar os dois contaria duas vezes
+    // um salário lançado à mão antes de virar recorrente.
     const receitaPorMes = new Map<string, number>();
     for (const serie of receitas.values()) {
       for (const [chave, valor] of serie) receitaPorMes.set(chave, (receitaPorMes.get(chave) ?? 0) + valor);
     }
-    const rendaPrevista = centavos(mediana(meses6.map((m) => receitaPorMes.get(chaveMes(m.ano, m.mes)) ?? 0)));
+    const rendaPrevista = centavos(
+      Math.max(mediana(meses6.map((m) => receitaPorMes.get(chaveMes(m.ano, m.mes)) ?? 0)), receitaRecorrente),
+    );
     const totalSugerido = centavos(data.reduce((acc, s) => acc + s.sugerido, 0));
 
     return {
@@ -345,6 +349,18 @@ export class BudgetsService {
     }
     if (tipo === 'despesa') resultado.delete('__sem_categoria__');
     return resultado;
+  }
+
+  private async receitaRecorrenteDoMes(userId: string, inicio: string, fim: string): Promise<number> {
+    const r = await this.transactionsRepository
+      .createQueryBuilder('t')
+      .select('COALESCE(SUM(t.valor), 0)', 'total')
+      .where('t.userId = :userId', { userId })
+      .andWhere("t.tipo = 'receita'")
+      .andWhere('t.recurringRuleId IS NOT NULL')
+      .andWhere('COALESCE(t.dataCompetencia, t.data) BETWEEN :inicio AND :fim', { inicio, fim })
+      .getRawOne<{ total: string }>();
+    return Number(r?.total ?? 0);
   }
 
   /** categoryId → soma de despesas no período, por competência. */

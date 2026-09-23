@@ -86,6 +86,10 @@ export default function DashboardPage() {
       icon: HiScale,
       colorText: 'text-primary-600',
       colorBg: 'bg-blue-50',
+      // Dinheiro em conta; os ativos da carteira vêm à parte.
+      hint: summary?.patrimonioInvestido
+        ? `+ ${formatCurrency(summary.patrimonioInvestido)} investidos`
+        : undefined,
     },
     {
       label: 'Entradas do Mês',
@@ -136,6 +140,9 @@ export default function DashboardPage() {
                   <p className={`text-2xl font-bold mt-1 ${card.colorText}`}>
                     {formatCurrency(card.value)}
                   </p>
+                  {'hint' in card && card.hint && (
+                    <p className="text-xs text-gray-400 mt-0.5">{card.hint}</p>
+                  )}
                 </div>
                 <div className={`p-3 rounded-xl ${card.colorBg}`}>
                   <card.icon className={`h-6 w-6 ${card.colorText}`} />

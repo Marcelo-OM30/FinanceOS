@@ -13,6 +13,7 @@ import { Card } from '../../accounts/entities/card.entity';
 import { Category } from '../../categories/entities/category.entity';
 import { InstallmentPurchase } from '../../installments/entities/installment-purchase.entity';
 import { CardInvoice } from '../../card-invoices/entities/card-invoice.entity';
+import { RecurringRule } from '../../recurring/entities/recurring-rule.entity';
 
 @Entity('transactions')
 @Index(['userId', 'data'])
@@ -22,6 +23,8 @@ import { CardInvoice } from '../../card-invoices/entities/card-invoice.entity';
 @Index(['contaDestinoId'])
 @Index(['installmentPurchaseId'])
 @Index(['cardInvoiceId'])
+// Chave de idempotência da geração de recorrências: uma ocorrência por data.
+@Index(['recurringRuleId', 'dataCompetencia'], { unique: true })
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -70,11 +73,10 @@ export class Transaction {
   @Column('varchar', { length: 20, nullable: true })
   recorrencia?: string;
 
+  // Ocorrência de uma conta recorrente. Nela, dataCompetencia é sempre a data
+  // da ocorrência (mesmo fora do cartão), o que dá a chave única acima.
   @Column('uuid', { nullable: true })
-  recorrenciaGrupoId?: string;
-
-  @Column('date', { nullable: true })
-  proximoVencimento?: Date;
+  recurringRuleId?: string | null;
 
   @Column('simple-array', { default: () => 'ARRAY[]::varchar[]' })
   tags: string[] = [];
@@ -125,6 +127,9 @@ export class Transaction {
 
   @ManyToOne(() => CardInvoice, (f) => f.transacoes, { nullable: true, onDelete: 'SET NULL' })
   cardInvoice?: CardInvoice;
+
+  @ManyToOne(() => RecurringRule, { nullable: true, onDelete: 'SET NULL' })
+  recurringRule?: RecurringRule;
 
   @ManyToOne(() => Category, (category) => category.transactions, { nullable: true, onDelete: 'SET NULL' })
   category?: Category;

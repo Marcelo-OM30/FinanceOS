@@ -101,9 +101,9 @@ depende da fatura existir (spec de orçamento, §3).
 **Lacunas relevantes:**
 
 1. ~~**`transferência` não transfere.**~~ Resolvido em 23/09/2026 (ver acima).
-2. **`recorrencia` não gera nada.** O campo é gravado (`mensal` quando o usuário
-   marca o checkbox), mas nenhum código cria as ocorrências futuras. As colunas
-   `recorrenciaGrupoId` e `proximoVencimento` existem e nunca são preenchidas.
+2. ~~**`recorrencia` não gera nada.**~~ Resolvido em 23/09/2026 com contas
+   recorrentes (§4b); `recorrencia` virou só rótulo e as colunas
+   `recorrenciaGrupoId`/`proximoVencimento` foram removidas.
 3. **Sem edição no frontend.** `PATCH /transactions/:id` está implementado e
    testado no backend, mas a interface só permite criar e excluir.
 4. **`reconciliada` não é usada.** `confirmada` passou a valer em 23/09/2026
@@ -131,6 +131,39 @@ quanto falta e o próximo vencimento.
 compra no cartão é cadastrada na conta que paga a fatura, com o dia de
 vencimento dela. Como o orçamento conta só o realizado, no mês da compra ele
 mostra apenas as parcelas já pagas; o total comprometido entra na Fase 4.
+
+## 4b. Contas recorrentes (`recurring_rules`)
+
+Desde 23/09/2026. Tela "Recorrentes": aluguel, salário, assinaturas — receita
+ou despesa, semanal, mensal ou anual, na conta ou no cartão (cada ocorrência
+vira compra na fatura). As ocorrências são transações **previstas** mantidas
+sempre para os próximos 12 meses: criar a regra já as gera, e o backend confere
+a janela no boot e a cada 6 horas, sem duplicar. Aparecem em Transações como
+"Agendada", na projeção e no "comprometido" do orçamento; salário recorrente
+entra na renda das sugestões.
+
+Confirmar uma ocorrência pergunta o valor real. Com "valor variável" (luz,
+água), a previsão é a média das 3 últimas confirmadas. Excluir uma ocorrência é
+"este mês não teve" — ela não volta. Pausar ou excluir a regra remove as
+previsões de hoje em diante e mantém o que já aconteceu. No formulário de
+transação, "Repetir todo mês" cria a regra a partir do mês seguinte.
+
+## 4c. Investimentos (`assets`, `investment_transactions`, `asset_quotes`)
+
+Desde 23/09/2026. A conta de tipo **investimento** é o caixa da corretora: o
+dinheiro entra por transferência da conta corrente, e a tela de Investimentos
+registra compra, venda, dividendo, JCP, rendimento e taxa — compra e taxa saem
+do caixa, venda e proventos entram. A carteira mostra, por ativo, quantidade,
+preço médio (custo médio ponderado com taxas; venda não muda o preço médio),
+cotação, valor de mercado, resultado em aberto e percentual, além de lucro
+realizado e proventos.
+
+Vender mais do que se tinha **naquela data** é recusado, e excluir uma compra
+que deixaria uma venda posterior descoberta também. Cotações: brapi a cada 6
+horas e no botão "Cotações" (sem `BRAPI_TOKEN`, só os ativos de teste da brapi,
+como PETR4); qualquer ativo aceita cotação informada à mão (renda fixa é manual
+por padrão). Sem cotação, o valor de mercado é o custo e a tela avisa. O card de
+saldo do dashboard mostra, abaixo do saldo em conta, o total investido.
 
 ## 5. Categorias (`categories`)
 
@@ -285,7 +318,7 @@ interface — e, como visto em §8, o timezone não é usado nem internamente.
 **Funcionalidade prometida que não existe**
 
 3. Alertas nunca são gerados (§9)
-4. Recorrência não gera transações futuras (§4)
+4. ~~Recorrência não gera transações futuras (§4)~~ — resolvido em 23/09/2026
 5. Cartões e perfil sem interface (§10, §11)
 6. Sem edição de transação na interface (§4)
 

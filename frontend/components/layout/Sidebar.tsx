@@ -12,6 +12,8 @@ import {
   HiLogout,
   HiCollection,
   HiLibrary,
+  HiRefresh,
+  HiTrendingUp,
 } from 'react-icons/hi';
 import { useAuthStore } from '@/store/auth.store';
 import { useUiStore } from '@/store/ui.store';
@@ -21,8 +23,10 @@ const navItems = [
   { href: '/transactions', label: 'Transações', icon: HiCurrencyDollar },
   { href: '/accounts', label: 'Contas', icon: HiLibrary },
   { href: '/cards', label: 'Cartões', icon: HiCreditCard },
+  { href: '/recurring', label: 'Recorrentes', icon: HiRefresh },
   { href: '/installments', label: 'Parcelamentos', icon: HiCollection },
   { href: '/budgets', label: 'Orçamentos', icon: HiChartPie },
+  { href: '/investments', label: 'Investimentos', icon: HiTrendingUp },
   { href: '/goals', label: 'Metas', icon: HiFlag },
   { href: '/categories', label: 'Categorias', icon: HiTag },
 ];

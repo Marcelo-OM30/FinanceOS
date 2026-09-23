@@ -9,6 +9,10 @@ import { Category } from '../modules/categories/entities/category.entity';
 import { Transaction } from '../modules/transactions/entities/transaction.entity';
 import { InstallmentPurchase } from '../modules/installments/entities/installment-purchase.entity';
 import { CardInvoice } from '../modules/card-invoices/entities/card-invoice.entity';
+import { RecurringRule } from '../modules/recurring/entities/recurring-rule.entity';
+import { Asset } from '../modules/investments/entities/asset.entity';
+import { AssetQuote } from '../modules/investments/entities/asset-quote.entity';
+import { InvestmentTransaction } from '../modules/investments/entities/investment-transaction.entity';
 import { Budget } from '../modules/budgets/entities/budget.entity';
 import { Goal } from '../modules/goals/entities/goal.entity';
 import { GoalProgress } from '../modules/goals/entities/goal-progress.entity';
@@ -30,6 +34,10 @@ export const AppDataSource = new DataSource({
     Transaction,
     InstallmentPurchase,
     CardInvoice,
+    RecurringRule,
+    Asset,
+    AssetQuote,
+    InvestmentTransaction,
     Budget,
     Goal,
     GoalProgress,

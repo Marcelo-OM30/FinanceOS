@@ -315,6 +315,21 @@ faturas e o `saldoAtual` das contas afetadas recalculado.
 
 ## 4. Contas recorrentes
 
+> **Implementada em 23/09/2026.** Diferenças: a chave única é
+> `['recurringRuleId', 'dataCompetencia']`, não `data` — no cartão, `data` é o
+> vencimento da fatura e várias ocorrências semanais cairiam no mesmo dia; por
+> isso toda ocorrência grava `dataCompetencia` = data da ocorrência. A geração
+> roda no boot e a cada 6 horas (`setInterval`, sem `@nestjs/schedule`), e as
+> ocorrências nascem a partir de hoje. Excluir uma ocorrência a grava em
+> `datasPuladas` da regra, senão a próxima rodada a recriaria. Confirmar aceita
+> `{ valor }` com o valor real. Pausar e excluir removem só as previstas de hoje
+> em diante; as atrasadas ficam para o usuário decidir. `PATCH` não muda tipo,
+> frequência, conta nem cartão. Valor variável usa a média das até 3 últimas
+> confirmadas (basta 1). `rendaPrevista` do orçamento é o **maior** entre a
+> mediana e as receitas recorrentes do mês, não a soma — somar contaria duas
+> vezes um salário lançado à mão antes de virar recorrente. O checkbox
+> "recorrente" do formulário passou a criar a regra.
+
 ### 4.1 Tabela `recurring_rules`
 
 A coluna `transactions.recorrencia` continua existindo como rótulo, mas a geração passa a
@@ -521,6 +536,22 @@ Cria em lote, em uma transação de banco. Categoria que já tem orçamento no p
 
 ## 6. Investimentos
 
+> **Implementada em 23/09/2026.** A decisão do §6.3 foi a oposta da regra
+> proposta: o `saldoAtual` da conta de investimento é o **caixa da corretora**,
+> e os movimentos de carteira mexem nele (compra e taxa tiram; venda e
+> proventos põem). Assim o aporte é uma transferência comum para a corretora,
+> e a posição a valor de mercado vem à parte (`patrimonioInvestido` no
+> `summary`). Movimento só em conta `investimento`. Outras diferenças: o `POST`
+> de movimento aceita `ticker` e cria o ativo se não existir; em provento e
+> taxa, `quantidade` é 0 e `precoUnitario` é o valor; venda é validada contra
+> a posição **na data dela**, e excluir um movimento que descobriria uma venda
+> posterior dá 409; cotação sem token da brapi só vale para os ativos de teste
+> (`BRAPI_TOKEN` opcional), com `POST /assets/:id/cotacoes` para informar à mão
+> e `POST /investments/cotacoes/atualizar` para buscar na hora; sem cotação, o
+> valor de mercado é o custo, com `semCotacao: true`. Posição consolidada por
+> ativo, somando as corretoras. Decisão 5 do §7 (Meu Pluggy): fica para depois
+> dos investimentos, que foram feitos à mão primeiro.
+
 Hoje um investimento é uma `account` de `tipo = 'investimento'` com `saldoAtual` digitado à
 mão. Não há ativo, quantidade, preço médio nem cotação.
 
@@ -618,7 +649,7 @@ Precisam de resposta antes da fase correspondente:
 | 2 | ~~Pagamento parcial de fatura: rolar ou proibir?~~ **Decidido em 23/09/2026: proibido.** O pagamento é sempre do valor total da fatura (§3.3) | 3 |
 | 3 | ~~Categoria do pagamento da fatura~~ **Decidido em 23/09/2026: sem categoria** — as compras já estão categorizadas | 3 |
 | 4 | ~~Janela de sugestão: 6 ou 12 meses?~~ **Decidido em 23/09/2026: 6 meses**, com as esporádicas olhando 12, como a spec assumia | 4 |
-| 5 | Vale trazer o [Meu Pluggy](https://www.pluggy.ai/meu-pluggy) — Open Finance gratuito por tempo indeterminado para uso pessoal — antes ou depois dos investimentos? Elimina digitação manual, que é o que mata app de finanças pessoais na prática | 6 |
+| 5 | ~~Decidido em 23/09/2026: depois~~ — investimentos foram feitos à mão primeiro. Vale trazer o [Meu Pluggy](https://www.pluggy.ai/meu-pluggy) — Open Finance gratuito por tempo indeterminado para uso pessoal — antes ou depois dos investimentos? Elimina digitação manual, que é o que mata app de finanças pessoais na prática | 6 |
 
 ---
 
@@ -631,8 +662,8 @@ Precisam de resposta antes da fase correspondente:
 | **2** | ~~Parcelamento (§2)~~ — concluída em 23/09/2026, sem cartão | 1 | "comprei em 12x" aparece nos próximos 12 meses |
 | **3** | ~~Fatura de cartão (§3) + tela de cartões + regra do §1.2 para `cardId` e backfill do §3.4 + `cardId` no parcelamento~~ — concluída em 23/09/2026 | 2 | gasto de crédito no fluxo de caixa certo |
 | **4** | ~~Orçamento: rollover, campos derivados, sugestões (§5)~~ — concluída em 23/09/2026 | 1, 2 | **orçamento montado a partir do histórico** |
-| **5** | Recorrências (§4) + projeção do dashboard usando previstos | 1 | contas fixas entram na projeção |
-| **6** | Investimentos (§6) | — | carteira com preço médio e cotação |
+| **5** | ~~Recorrências (§4) + projeção do dashboard usando previstos~~ — concluída em 23/09/2026 (a projeção já somava previstos desde a Fase 1) | 1 | contas fixas entram na projeção |
+| **6** | ~~Investimentos (§6)~~ — concluída em 23/09/2026 | — | carteira com preço médio e cotação |
 
 A Fase 6 não depende de nenhuma outra e pode ser feita fora de ordem, se a prioridade mudar.
 

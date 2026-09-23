@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Transaction } from '../transactions/entities/transaction.entity';
 import { Account } from '../accounts/entities/account.entity';
 import { AlertsService } from './alerts.service';
+import { InvestmentsService } from '../investments/investments.service';
 import { deslocarMes, diasNoMes, hojeNoFuso, limitesDoMes, partesDaData } from '../../common/datas';
 
 @Injectable()
@@ -14,19 +15,23 @@ export class DashboardService {
     @InjectRepository(Account)
     private accountsRepository: Repository<Account>,
     private alertsService: AlertsService,
+    private investmentsService: InvestmentsService,
   ) {}
 
   async getSummary(userId: string, fuso?: string) {
     const { ano, mes } = partesDaData(hojeNoFuso(fuso));
     const { inicio: inicioMes, fim: fimMes } = limitesDoMes(ano, mes);
 
-    const [accounts, entradas, saidas, alertasNaoLidos] = await Promise.all([
+    const [accounts, entradas, saidas, alertasNaoLidos, patrimonioInvestido] = await Promise.all([
       this.accountsRepository.find({ where: { userId, ativo: true } }),
       this.sumTransactions(userId, 'receita', inicioMes, fimMes),
       this.sumTransactions(userId, 'despesa', inicioMes, fimMes),
       this.alertsService.countUnread(userId),
+      this.investmentsService.valorDeMercado(userId),
     ]);
 
+    // saldoConsolidado é dinheiro em conta (inclusive o caixa da corretora);
+    // os ativos, a valor de mercado, vêm à parte.
     const saldoConsolidado = accounts.reduce(
       (acc, a) => acc + Number(a.saldoAtual),
       0,
@@ -38,6 +43,7 @@ export class DashboardService {
       totalSaidasMes: saidas,
       resultadoMes: entradas - saidas,
       alertasNaoLidos,
+      patrimonioInvestido,
     };
   }
 

@@ -30,7 +30,7 @@ Três formatos convivem. Confira qual antes de consumir:
 | Formato | Endpoints |
 |---|---|
 | Array puro `[...]` | `GET /accounts`, `/cards`, `/categories`, `/budgets`, `/goals`, `/alerts` |
-| Objeto embrulhado `{ data: [...], ... }` | `GET /transactions`, `/installments`, `/card-invoices`, `/dashboard/chart-categories`, `/dashboard/chart-evolution` |
+| Objeto embrulhado `{ data: [...], ... }` | `GET /transactions`, `/installments`, `/card-invoices`, `/recurring-rules`, `/investments/transactions`, `/investments/positions`, `/dashboard/chart-categories`, `/dashboard/chart-evolution` |
 | Objeto simples | `/dashboard/summary`, `/dashboard/projection`, `/users/profile`, e todo `GET/POST/PATCH` de item único |
 
 Uniformizar isso é uma dívida técnica conhecida. Enquanto não for feito, o
@@ -119,6 +119,64 @@ As parcelas são transações comuns com `installmentPurchaseId` e
 `contaDestinoId` dá 400. Confirmar a última prevista marca o parcelamento como
 `quitada`; desconfirmar volta para `ativa`; em parcelamento cancelado,
 `desconfirmar` dá 409.
+
+## Contas recorrentes
+
+| Método | Rota | Observação |
+|---|---|---|
+| GET | `/recurring-rules` | `{ data: [...] }` ← **embrulhada** |
+| GET | `/recurring-rules/:id` | |
+| POST | `/recurring-rules` | cria e gera 12 meses de previsões |
+| PATCH | `/recurring-rules/:id` | refaz as previsões de hoje em diante; `ativa: false` pausa |
+| DELETE | `/recurring-rules/:id` | 204; previsões futuras somem, confirmadas ficam sem vínculo |
+
+**Body de `POST`:** `tipo` (`receita` \| `despesa`), `descricao`,
+`valorEstimado`, `valorVariavel?`, `frequencia` (`semanal` \| `mensal` \|
+`anual`), `diaDoMes?` (padrão: dia de `dataInicio`), `mesDoAno?` (anual; padrão:
+mês de `dataInicio`), `diaDaSemana?` (0 = domingo; semanal), `dataInicio`,
+`dataFim?`, `accountId` — ou `cardId` (só despesa) —, `categoryId?`.
+
+**`PATCH`:** só `descricao`, `valorEstimado`, `valorVariavel`, `diaDoMes`,
+`mesDoAno`, `diaDaSemana`, `dataFim` (null = sem fim), `categoryId`, `ativa`.
+
+**Cada item:** colunas (`valorEstimado` como **texto**) mais `proximaOcorrencia`
+(ou `null`), `valorPrevisto` (número), `datasPuladas`, `account`, `card`,
+`category`.
+
+Ocorrências são transações com `recurringRuleId` e `dataCompetencia` = data da
+ocorrência. `POST /transactions/:id/confirmar` aceita `{ valor? }` (qualquer
+prevista fora do cartão). Excluir uma ocorrência grava a data em `datasPuladas`;
+`PATCH` nela não muda `dataCompetencia`.
+
+## Investimentos
+
+| Método | Rota | Observação |
+|---|---|---|
+| GET | `/investments/positions` | `{ data: Posicao[], totais }` — objeto próprio |
+| GET | `/investments/transactions` | `{ data, total, page, limit }` ← **embrulhada**. Query `assetId`, `page`, `limit` (30, máx. 100) |
+| POST | `/investments/transactions` | registra e mexe no caixa da conta |
+| DELETE | `/investments/transactions/:id` | 204; desfaz no caixa. 409 se descobrir uma venda posterior |
+| POST | `/investments/cotacoes/atualizar` | busca na brapi agora: `{ atualizados, falhas }` |
+| GET | `/assets?q=` | array puro; ativos do usuário e globais |
+| POST | `/assets` | `{ ticker, nome, tipo, fonteCotacao? }`; 409 se o ticker já existe |
+| POST | `/assets/:id/cotacoes` | `{ preco, data? }` (padrão hoje) — cotação manual |
+
+**Body de `POST /investments/transactions`:** `accountId` (conta de tipo
+`investimento`, senão 400), `tipo` (`compra` \| `venda` \| `dividendo` \|
+`jcp` \| `rendimento` \| `taxa`), `assetId` **ou** `ticker` (criado se não
+existir — aí `tipoAtivo` é obrigatório: `acao` \| `fii` \| `etf` \| `bdr` \|
+`tesouro` \| `cripto` \| `renda_fixa`; opcionais `nomeAtivo`, `fonteCotacao`),
+`quantidade` (só compra/venda, até 8 casas), `precoUnitario` (em provento e taxa,
+o valor), `taxas?` (compra/venda), `data`. 409 se a venda passa da posição na data.
+
+**Posição:** `asset`, `quantidade`, `precoMedio`, `custoTotal`, `cotacao`,
+`dataCotacao` (ou `null`), `semCotacao`, `valorMercado`, `resultadoNaoRealizado`,
+`rentabilidadePercentual`, `lucroRealizado`, `proventos` — todos numéricos.
+Nos movimentos listados, `quantidade`, `precoUnitario` e `taxas` chegam como
+**texto**.
+
+`GET /dashboard/summary` ganhou `patrimonioInvestido` (valor de mercado da
+carteira); `saldoConsolidado` continua sendo só dinheiro em conta.
 
 ## Dashboard
 

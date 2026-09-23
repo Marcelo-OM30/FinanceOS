@@ -129,6 +129,7 @@ eliminaria essa pegadinha e é uma melhoria recomendada.
 | `JWT_REFRESH_SECRET` | backend | segredo separado do access token |
 | `CARD_ENCRYPTION_KEY` | backend | obrigatória, mín. 32 caracteres; sem ela o boot falha. Trocá-la torna ilegíveis os cartões já salvos |
 | `FRONTEND_URL` | backend | origem liberada no CORS |
+| `BRAPI_TOKEN` | backend | opcional; cotações da brapi.dev. Sem ele, só os ativos de teste (PETR4, VALE3…) são cotados |
 | `NODE_ENV` | backend | controla `synchronize` e logging do TypeORM |
 | `PORT` | ambos | injetada pelo Railway (8080) |
 | `NEXT_PUBLIC_API_URL` | frontend | embutida no bundle **em tempo de build** |
@@ -164,6 +165,12 @@ eliminaria essa pegadinha e é uma melhoria recomendada.
 10. Formato de resposta não uniforme entre endpoints.
 11. `synchronize` em dev e migrations em produção podem divergir silenciosamente.
 12. Sem testes automatizados cobrindo os fluxos de escrita.
+
+**Tarefas periódicas** (desde 23/09/2026): o backend roda no boot e a cada 6 horas,
+com `setInterval`, a garantia das ocorrências de contas recorrentes (12 meses à
+frente) e a busca de cotações. As duas são idempotentes, então rodar a mais ou
+perder uma rodada não faz mal. Com mais de uma instância, cada uma rodaria as suas —
+continua correto, só redundante.
 
 ## Próximos passos sugeridos, em ordem
 

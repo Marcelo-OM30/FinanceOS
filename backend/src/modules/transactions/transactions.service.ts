@@ -14,6 +14,7 @@ import { FilterTransactionDto } from './dto/filter-transaction.dto';
 import { aplicarNoSaldo } from './saldo';
 import { sincronizarStatusDoParcelamento } from '../installments/status-parcelamento';
 import { CardInvoice } from '../card-invoices/entities/card-invoice.entity';
+import { RecurringRule } from '../recurring/entities/recurring-rule.entity';
 import {
   cartaoParaCompra,
   cicloDaCompra,
@@ -166,6 +167,10 @@ export class TransactionsService {
       throw new BadRequestException('Para passar para o cartão, exclua e lance de novo');
     }
 
+    if (transaction.recurringRuleId && dto.dataCompetencia !== undefined) {
+      throw new BadRequestException('Ocorrência de recorrência não muda de data de competência');
+    }
+
     if (transaction.installmentPurchaseId) {
       const proibidos = CAMPOS_FIXOS_DA_PARCELA.filter((c) => dto[c] !== undefined);
       if (proibidos.length > 0) {
@@ -203,14 +208,17 @@ export class TransactionsService {
     return this.findOne(id, userId);
   }
 
-  /** Prevista → realizada: o valor passa a contar no saldo. */
-  async confirmar(id: string, userId: string): Promise<Transaction> {
+  /**
+   * Prevista → realizada: o valor passa a contar no saldo. `valor` é o valor
+   * real, quando difere do previsto (conta de luz, ocorrência recorrente).
+   */
+  async confirmar(id: string, userId: string, valor?: number): Promise<Transaction> {
     const transaction = await this.findOne(id, userId);
     if (transaction.cardId) {
       throw new ConflictException('Compra no cartão é confirmada pelo pagamento da fatura');
     }
     if (transaction.confirmada) throw new ConflictException('Transação já confirmada');
-    return this.update(id, userId, { confirmada: true });
+    return this.update(id, userId, valor === undefined ? { confirmada: true } : { confirmada: true, valor });
   }
 
   /** Realizada → prevista: o valor sai do saldo e volta a ser só agendado. */
@@ -244,6 +252,16 @@ export class TransactionsService {
       await aplicarNoSaldo(manager, transaction, -1);
       await manager.remove(Transaction, transaction);
       if (transaction.cardInvoiceId) await recalcularFatura(manager, transaction.cardInvoiceId);
+      // Excluir uma ocorrência é "este mês não teve": a regra lembra a data,
+      // senão a próxima rodada da geração a recriaria.
+      if (transaction.recurringRuleId && transaction.dataCompetencia) {
+        const regra = await manager.findOne(RecurringRule, { where: { id: transaction.recurringRuleId } });
+        const data = String(transaction.dataCompetencia).slice(0, 10);
+        if (regra && !(regra.datasPuladas ?? []).includes(data)) {
+          regra.datasPuladas = [...(regra.datasPuladas ?? []), data];
+          await manager.save(RecurringRule, regra);
+        }
+      }
     });
   }
 
