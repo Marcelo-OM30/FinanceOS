@@ -54,3 +54,6 @@ temp/
 # Backups locais do banco
 backups/
 *.dump
+
+# Configuração local do Claude Code
+.claude/settings.local.json
