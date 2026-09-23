@@ -5,6 +5,7 @@ import {
   IsOptional,
   Min,
   Max,
+  IsIn,
 } from 'class-validator';
 
 export class CreateBudgetDto {
@@ -29,4 +30,8 @@ export class CreateBudgetDto {
   @Min(1)
   @Max(100)
   alertaPercentual?: number;
+
+  @IsOptional()
+  @IsIn(['nenhum', 'acumula', 'ajustado'])
+  rollover?: 'nenhum' | 'acumula' | 'ajustado';
 }

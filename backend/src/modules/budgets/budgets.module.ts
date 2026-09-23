@@ -3,10 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Budget } from './entities/budget.entity';
 import { BudgetsService } from './budgets.service';
 import { BudgetsController } from './budgets.controller';
-import { TransactionsModule } from '../transactions/transactions.module';
+import { Transaction } from '../transactions/entities/transaction.entity';
+import { Category } from '../categories/entities/category.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Budget]), TransactionsModule],
+  imports: [TypeOrmModule.forFeature([Budget, Transaction, Category])],
   providers: [BudgetsService],
   controllers: [BudgetsController],
   exports: [BudgetsService],

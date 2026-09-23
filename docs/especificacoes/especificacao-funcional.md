@@ -147,17 +147,35 @@ as duas aparecem juntas na lista sem nada que as distinga.
 ## 6. Orçamentos (`budgets`)
 
 Um orçamento é um teto de gasto para uma categoria em um mês/ano: `limiteMensal`,
-`mes`, `ano`, `alertaPercentual` (padrão 80).
+`mes`, `ano`, `alertaPercentual` (padrão 80) e `rollover` (o que acontece com o
+saldo no mês seguinte).
 
-A cada leitura o backend enriquece o registro:
+A cada leitura o backend calcula, por competência (`COALESCE(dataCompetencia, data)`):
 
-- `gastoAtual` — soma das despesas daquela categoria no mês (calculada na hora);
-- `percentualUtilizado` — `gastoAtual / limiteMensal`, arredondado;
-- `emAlerta` — `percentualUtilizado >= alertaPercentual` e `< 100`;
-- `estourado` — `percentualUtilizado >= 100`.
+- `gastoRealizado` — despesas confirmadas da categoria no mês (`gastoAtual` é o
+  mesmo valor, mantido por compatibilidade);
+- `comprometido` — despesas previstas: agendadas, parcelas e compras no cartão
+  com a fatura ainda não paga;
+- `saldoAnterior` — o que vem do mês anterior, segundo o `rollover` **dele**:
+  `nenhum` = 0; `acumula` = a sobra, nunca negativa; `ajustado` = sobra ou
+  estouro, com piso: estouro acima de 2× o limite deixa R$ 1 disponível.
+  Calculado a cada leitura, não gravado;
+- `disponivel` = `limite + saldoAnterior − realizado − comprometido`;
+- `percentualUtilizado` (só o realizado, como sempre) e `percentualComprometido`;
+- `emAlerta` e `estourado`, sobre `percentualUtilizado`.
 
-A coluna `gastoAtual` da tabela existe mas é ignorada na leitura — o valor exibido
-vem sempre do cálculo. Vale removê-la para não induzir a erro.
+**Montar pelo histórico** (desde 23/09/2026): `GET /budgets/sugestoes` propõe um
+teto por categoria para o mês escolhido, olhando os 6 meses fechados anteriores
+(nunca o mês corrente, incompleto) e só o realizado. Fixa (≥ 5 meses, variação
+≤ 15%) → média dos meses com gasto; variável (≥ 3 meses) → mediana dos 6, que
+ignora um mês atípico; esporádica (≤ 2) → total de 12 meses ÷ 12, para IPVA e
+seguro não estourarem o mês do vencimento. Se o que já está agendado para o mês
+for maior, a sugestão sobe até ele. A tela mostra a renda típica (mediana das
+receitas dos 6 meses), o total orçado e quanto sobra "a alocar"; o usuário
+ajusta cada valor ("sugerido" ou "com folga" = p75), escolhe o rollover e aplica
+— categoria que já tem orçamento no mês é atualizada. A tela navega por mês.
+
+Despesa sem categoria não entra nas sugestões, porque não há onde orçá-la.
 
 **Lacuna:** estourar um orçamento não dispara nada além da cor na tela (ver §9).
 

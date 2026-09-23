@@ -109,17 +109,52 @@ export interface Installment {
   parcelas?: Transaction[];
 }
 
+export type Rollover = 'nenhum' | 'acumula' | 'ajustado';
+
 export interface Budget {
   id: string;
+  categoryId: string;
   mes: number;
   ano: number;
-  limiteMensal: number;
-  gastoAtual: number;
+  // decimal: chega como texto.
+  limiteMensal: string;
   alertaPercentual: number;
+  rollover: Rollover;
+  // Calculados na leitura, já numéricos. gastoAtual = gastoRealizado (legado).
+  gastoAtual: number;
+  gastoRealizado: number;
+  comprometido: number;
+  saldoAnterior: number;
+  disponivel: number;
+  // Só o realizado, como sempre; o comprometido vem em percentualComprometido.
   percentualUtilizado: number;
+  percentualComprometido: number;
   emAlerta: boolean;
   estourado: boolean;
   category?: Category;
+}
+
+export interface SugestaoOrcamento {
+  categoryId: string;
+  categoria: string;
+  classe: 'fixa' | 'variavel' | 'esporadica';
+  sugerido: number;
+  media: number;
+  mediana: number;
+  p75: number;
+  mesesComGasto: number;
+  comprometido: number;
+  ajustadoPorCompromissos: boolean;
+  orcamentoExistente: { id: string; limiteMensal: number; rollover: Rollover } | null;
+}
+
+export interface SugestoesOrcamento {
+  periodo: { mes: number; ano: number };
+  janela: { de: string; ate: string };
+  rendaPrevista: number;
+  totalSugerido: number;
+  aAlocar: number;
+  data: SugestaoOrcamento[];
 }
 
 export interface Goal {

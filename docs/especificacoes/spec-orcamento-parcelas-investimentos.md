@@ -387,6 +387,17 @@ Ajuste de dia do mês: idêntico ao §2.4 (31 → último dia do mês).
 
 ## 5. Orçamento
 
+> **Implementada em 23/09/2026.** Diferenças: `saldoAnterior` **não é gravado** —
+> é calculado a cada leitura, encadeando os meses anteriores (até 24), porque
+> gravar no primeiro acesso deixaria o valor velho quando uma transação do mês
+> passado muda; o modo que decide é o do mês que termina. `gastoAtual` saiu da
+> tabela, mas continua na resposta (= `gastoRealizado`) por compatibilidade.
+> Fixa usa a média dos meses **com gasto** (e o CV também), para uma conta
+> lançada atrasada não derrubar a classificação; variável usa a mediana dos 6
+> meses com zeros. `rendaPrevista` é só a mediana das receitas até as
+> recorrências existirem (Fase 5). A resposta das sugestões traz também
+> `janela`.
+
 ### 5.1 Mudanças na entidade `Budget`
 
 | Coluna | Ação | Notas |
@@ -619,7 +630,7 @@ Precisam de resposta antes da fase correspondente:
 | **1** | ~~Previsto × realizado (§1)~~ — concluída em 23/09/2026, exceto a regra de cartão, que foi para a Fase 3: `confirmada` nos cálculos, `dataCompetencia` no orçamento, endpoints de confirmar/desconfirmar | 0 | lançar gasto futuro avulso |
 | **2** | ~~Parcelamento (§2)~~ — concluída em 23/09/2026, sem cartão | 1 | "comprei em 12x" aparece nos próximos 12 meses |
 | **3** | ~~Fatura de cartão (§3) + tela de cartões + regra do §1.2 para `cardId` e backfill do §3.4 + `cardId` no parcelamento~~ — concluída em 23/09/2026 | 2 | gasto de crédito no fluxo de caixa certo |
-| **4** | Orçamento: rollover, campos derivados, sugestões (§5) | 1, 2 | **orçamento montado a partir do histórico** |
+| **4** | ~~Orçamento: rollover, campos derivados, sugestões (§5)~~ — concluída em 23/09/2026 | 1, 2 | **orçamento montado a partir do histórico** |
 | **5** | Recorrências (§4) + projeção do dashboard usando previstos | 1 | contas fixas entram na projeção |
 | **6** | Investimentos (§6) | — | carteira com preço médio e cotação |
 

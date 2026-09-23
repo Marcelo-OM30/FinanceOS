@@ -217,11 +217,34 @@ obrigatórios; opcionais `descricao`, `icone`, `cor`, `categoriaPaiId`.
 
 ## Orçamentos
 
-`GET /budgets?mes=&ano=` → `Budget[]`, cada um enriquecido com `gastoAtual`,
-`percentualUtilizado`, `emAlerta`, `estourado`.
+`GET /budgets?mes=&ano=` → `Budget[]` (array puro). Além das colunas
+(`limiteMensal` chega como **texto**; `rollover`), cada item traz, numéricos:
+`gastoRealizado`, `gastoAtual` (= `gastoRealizado`, legado), `comprometido`,
+`saldoAnterior`, `disponivel`, `percentualUtilizado` (só realizado),
+`percentualComprometido`, `emAlerta`, `estourado`.
 
 `POST /budgets`: `categoryId`, `limiteMensal`, `mes`, `ano` obrigatórios;
-`alertaPercentual` opcional (padrão 80).
+`alertaPercentual` (padrão 80) e `rollover` (`nenhum` \| `acumula` \|
+`ajustado`, padrão `nenhum`) opcionais. 409 se a categoria já tem orçamento no mês.
+
+**`GET /budgets/sugestoes?mes=&ano=`** (obrigatórios) — não grava nada:
+
+```json
+{ "periodo": { "mes": 10, "ano": 2026 },
+  "janela": { "de": "2026-03", "ate": "2026-08" },
+  "rendaPrevista": 6000, "totalSugerido": 3925, "aAlocar": 2075,
+  "data": [ { "categoryId": "…", "categoria": "Mercado", "classe": "variavel",
+              "sugerido": 1225, "media": 1666.67, "mediana": 1225, "p75": 1287.5,
+              "mesesComGasto": 6, "comprometido": 0,
+              "ajustadoPorCompromissos": false, "orcamentoExistente": null } ] }
+```
+
+`classe`: `fixa` \| `variavel` \| `esporadica`. `orcamentoExistente`:
+`{ id, limiteMensal, rollover }` (número) ou `null`.
+
+**`POST /budgets/aplicar-sugestoes`** `{ mes, ano, itens: [{ categoryId,
+limiteMensal, rollover? }] }` — cria ou atualiza em uma transação e devolve os
+orçamentos do mês, como o `GET`.
 
 ## Metas
 

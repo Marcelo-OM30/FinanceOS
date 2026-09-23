@@ -11,7 +11,6 @@ import { Account } from '../accounts/entities/account.entity';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
-import { limitesDoMes } from '../../common/datas';
 import { aplicarNoSaldo } from './saldo';
 import { sincronizarStatusDoParcelamento } from '../installments/status-parcelamento';
 import { CardInvoice } from '../card-invoices/entities/card-invoice.entity';
@@ -297,30 +296,5 @@ export class TransactionsService {
       where: { id: t.contaDestinoId, userId },
     });
     if (!destino) throw new BadRequestException('Conta de destino não encontrada');
-  }
-
-  // ─── Utilitários para outros módulos ────────────────────────────────────────
-
-  async sumByCategory(
-    userId: string,
-    categoryId: string,
-    mes: number,
-    ano: number,
-  ): Promise<number> {
-    // Por competência: a compra de março conta no orçamento de março, mesmo
-    // paga em abril. Linhas sem dataCompetencia caem em `data`, como sempre.
-    const { inicio, fim } = limitesDoMes(ano, mes);
-
-    const result = await this.transactionsRepository
-      .createQueryBuilder('t')
-      .select('COALESCE(SUM(t.valor), 0)', 'total')
-      .where('t.userId = :userId', { userId })
-      .andWhere('t.categoryId = :categoryId', { categoryId })
-      .andWhere('t.tipo = :tipo', { tipo: 'despesa' })
-      .andWhere('t.confirmada = true')
-      .andWhere('COALESCE(t.dataCompetencia, t.data) BETWEEN :inicio AND :fim', { inicio, fim })
-      .getRawOne<{ total: string }>();
-
-    return parseFloat(result?.total ?? '0');
   }
 }

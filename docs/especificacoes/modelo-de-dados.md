@@ -149,7 +149,7 @@ debitado a conta.
 |---|---|---|
 | `userId`, `categoryId` | uuid | |
 | `limiteMensal` | numeric(15,2) | |
-| `gastoAtual` | numeric(15,2) | **coluna morta** — o valor exibido é recalculado a cada leitura |
+| `rollover` | varchar(20) | `nenhum` (padrão) \| `acumula` \| `ajustado` — desde 23/09/2026, quando `gastoAtual` (coluna morta) foi removida |
 | `mes`, `ano` | int | |
 | `alertaPercentual` | int | padrão 80 |
 

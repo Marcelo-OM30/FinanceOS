@@ -17,6 +17,8 @@ import { Type } from 'class-transformer';
 import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { AplicarSugestoesDto } from './dto/aplicar-sugestoes.dto';
+import { SugestoesQueryDto } from './dto/sugestoes-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
@@ -47,6 +49,17 @@ export class BudgetsController {
     @CurrentUser() user: User,
   ) {
     return this.budgetsService.findAll(user.id, query.mes, query.ano);
+  }
+
+  // Antes de ':id', senão 'sugestoes' cai no ParseUUIDPipe.
+  @Get('sugestoes')
+  sugestoes(@Query() query: SugestoesQueryDto, @CurrentUser() user: User) {
+    return this.budgetsService.sugestoes(user.id, query.mes, query.ano, user.timezone);
+  }
+
+  @Post('aplicar-sugestoes')
+  aplicarSugestoes(@Body() dto: AplicarSugestoesDto, @CurrentUser() user: User) {
+    return this.budgetsService.aplicarSugestoes(user.id, dto);
   }
 
   @Get(':id')

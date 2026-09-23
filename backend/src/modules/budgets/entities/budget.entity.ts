@@ -25,8 +25,10 @@ export class Budget {
   @Column('decimal', { precision: 15, scale: 2 })
   limiteMensal!: number;
 
-  @Column('decimal', { precision: 15, scale: 2, default: 0 })
-  gastoAtual: number = 0;
+  // O que acontece com o saldo deste mês no mês seguinte (spec §5.3):
+  // nenhum = some; acumula = sobra vira folga; ajustado = sobra e estouro passam.
+  @Column('varchar', { length: 20, default: 'nenhum' })
+  rollover: 'nenhum' | 'acumula' | 'ajustado' = 'nenhum';
 
   @Column('int')
   mes!: number;

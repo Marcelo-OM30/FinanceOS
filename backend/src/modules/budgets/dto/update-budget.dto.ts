@@ -5,6 +5,7 @@ import {
   IsBoolean,
   Min,
   Max,
+  IsIn,
 } from 'class-validator';
 
 export class UpdateBudgetDto {
@@ -22,4 +23,8 @@ export class UpdateBudgetDto {
   @IsOptional()
   @IsBoolean()
   ativo?: boolean;
+
+  @IsOptional()
+  @IsIn(['nenhum', 'acumula', 'ajustado'])
+  rollover?: 'nenhum' | 'acumula' | 'ajustado';
 }
