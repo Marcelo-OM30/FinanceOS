@@ -72,18 +72,27 @@ prática funciona — mas o índice não protege nada para quem não informa o n
 ## 4. Transações (`transactions`)
 
 O registro central. Campos: `tipo` (`receita` | `despesa` | `transferência`),
-`descricao`, `valor`, `data`, `accountId` (obrigatório), `categoryId`, `cardId`,
-`dataCompetencia`, `tags`, `numeroNota`, `recorrencia`, `confirmada`.
+`descricao`, `valor`, `data`, `accountId` (obrigatório), `contaDestinoId`,
+`categoryId`, `cardId`, `dataCompetencia`, `tags`, `numeroNota`, `recorrencia`,
+`confirmada`.
 
 Listagem paginada (padrão 20/página) com filtros por conta, categoria, cartão,
 tipo e intervalo de datas. Ordenação: `data DESC`, depois `dataCriacao DESC`.
+O filtro por conta inclui as transferências que chegam nela.
+
+**Transferência** é dinheiro que muda de uma conta do usuário para outra conta
+dele — desde 23/09/2026. Uma linha só: debita `accountId`, credita
+`contaDestinoId` e **não entra em nenhum total de receita ou despesa**, porque
+o patrimônio não muda. Destino obrigatório, diferente da origem, do mesmo
+usuário; não aceita `cardId`. PIX para outra pessoa não é transferência, é
+despesa. As transferências gravadas antes disso têm `contaDestinoId` nulo e
+continuam só debitando a origem — que é o que já tinham feito, então os saldos
+não precisaram de correção. Pagar fatura de cartão ainda não é representável:
+depende da fatura existir (spec de orçamento, §3).
 
 **Lacunas relevantes:**
 
-1. **`transferência` não transfere.** Não existe campo de conta destino. Uma
-   transferência debita a conta de origem exatamente como uma despesa e nada é
-   creditado em lugar nenhum. Pior: o dashboard soma apenas `receita` e `despesa`,
-   então o valor some dos totais do mês mas mexe no saldo consolidado.
+1. ~~**`transferência` não transfere.**~~ Resolvido em 23/09/2026 (ver acima).
 2. **`recorrencia` não gera nada.** O campo é gravado (`mensal` quando o usuário
    marca o checkbox), mas nenhum código cria as ocorrências futuras. As colunas
    `recorrenciaGrupoId` e `proximoVencimento` existem e nunca são preenchidas.
@@ -194,7 +203,7 @@ interface — e, como visto em §8, o timezone não é usado nem internamente.
 **Quebra o uso hoje**
 
 1. ~~Sessão expira em 15 min sem refresh (§2)~~ — resolvido em 22/09/2026
-2. Transferência não credita conta destino (§4)
+2. ~~Transferência não credita conta destino (§4)~~ — resolvido em 23/09/2026
 
 **Funcionalidade prometida que não existe**
 

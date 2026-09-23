@@ -47,6 +47,9 @@ export interface Transaction {
   data: string;
   category?: Category;
   account?: Account;
+  // Só em transferência. Null nas transferências gravadas antes do destino existir.
+  contaDestinoId?: string | null;
+  contaDestino?: Account | null;
   card?: Card;
   tags: string[];
   recorrencia?: 'única' | 'semanal' | 'mensal' | 'anual';

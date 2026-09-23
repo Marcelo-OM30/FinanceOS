@@ -16,6 +16,7 @@ import { Category } from '../../categories/entities/category.entity';
 @Index(['userId', 'data'])
 @Index(['categoryId'])
 @Index(['accountId'])
+@Index(['contaDestinoId'])
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -28,6 +29,11 @@ export class Transaction {
 
   @Column('uuid', { nullable: true })
   cardId?: string;
+
+  // Só em transferência: a conta que recebe o valor. Transferências gravadas
+  // antes desta coluna existir ficam com null e só debitam a origem.
+  @Column('uuid', { nullable: true })
+  contaDestinoId?: string | null;
 
   @Column('uuid', { nullable: true })
   categoryId?: string;
@@ -86,6 +92,9 @@ export class Transaction {
 
   @ManyToOne(() => Account, (account) => account.transactions, { onDelete: 'CASCADE' })
   account!: Account;
+
+  @ManyToOne(() => Account, { onDelete: 'SET NULL', nullable: true })
+  contaDestino?: Account;
 
   @ManyToOne(() => Card, (card) => card.transactions, { onDelete: 'SET NULL', nullable: true })
   card?: Card;

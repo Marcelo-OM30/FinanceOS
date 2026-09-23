@@ -86,6 +86,7 @@ visíveis na mesma lista.
 |---|---|---|
 | `userId`, `accountId` | uuid | obrigatórios |
 | `cardId`, `categoryId` | uuid | opcionais, `ON DELETE SET NULL` |
+| `contaDestinoId` | uuid | só em transferência, `ON DELETE SET NULL`; nulo nas anteriores a 23/09/2026 |
 | `tipo` | varchar(20) | `receita` \| `despesa` \| `transferência` |
 | `descricao` | varchar(255) | |
 | `valor` | numeric(15,2) | sempre positivo; o sinal vem do `tipo` |

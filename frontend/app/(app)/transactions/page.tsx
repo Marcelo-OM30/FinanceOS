@@ -25,6 +25,7 @@ interface TransactionForm {
   tipo: string;
   data: string;
   accountId: string;
+  contaDestinoId: string;
   categoryId: string;
   recorrente: boolean;
 }
@@ -58,6 +59,7 @@ export default function TransactionsPage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<TransactionForm>({
     defaultValues: {
@@ -66,6 +68,9 @@ export default function TransactionsPage() {
       recorrente: false,
     },
   });
+
+  const tipo = watch('tipo');
+  const isTransferencia = tipo === 'transferência';
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
@@ -109,13 +114,17 @@ export default function TransactionsPage() {
   const onSubmit = async (data: TransactionForm) => {
     setSubmitting(true);
     try {
-      const { recorrente, ...rest } = data;
+      // Campo a campo: o backend recusa qualquer propriedade que não conheça.
+      const transferencia = data.tipo === 'transferência';
       await api.post('/transactions', {
-        ...rest,
+        descricao: data.descricao,
+        tipo: data.tipo,
+        data: data.data,
         valor: parseFloat(data.valor),
-        categoryId: data.categoryId || undefined,
         accountId: data.accountId || undefined,
-        recorrencia: recorrente ? 'mensal' : 'única',
+        contaDestinoId: transferencia ? data.contaDestinoId : undefined,
+        categoryId: transferencia ? undefined : data.categoryId || undefined,
+        recorrencia: data.recorrente ? 'mensal' : 'única',
       });
       setModalOpen(false);
       setPage(1);
@@ -231,6 +240,7 @@ export default function TransactionsPage() {
                       </td>
                       <td className="hidden lg:table-cell px-4 sm:px-6 py-3.5 text-gray-500">
                         {t.account?.nome ?? '—'}
+                        {t.contaDestino && ` → ${t.contaDestino.nome}`}
                       </td>
                       <td className="hidden sm:table-cell px-4 sm:px-6 py-3.5">
                         <Badge variant={tipoColors[t.tipo] ?? 'default'}>
@@ -241,10 +251,13 @@ export default function TransactionsPage() {
                         className={`px-4 sm:px-6 py-3.5 text-right font-semibold whitespace-nowrap ${
                           t.tipo === 'receita'
                             ? 'text-green-600'
-                            : 'text-red-500'
+                            : t.tipo === 'transferência'
+                              ? 'text-gray-600'
+                              : 'text-red-500'
                         }`}
                       >
-                        {t.tipo === 'receita' ? '+' : '-'}
+                        {/* Transferência não é entrada nem saída: o dinheiro só muda de conta. */}
+                        {t.tipo === 'receita' ? '+' : t.tipo === 'transferência' ? '' : '-'}
                         {formatCurrency(t.valor)}
                       </td>
                       <td className="px-4 sm:px-6 py-3.5">
@@ -337,16 +350,36 @@ export default function TransactionsPage() {
             {...register('tipo', { required: true })}
           />
           <Select
-            label="Conta"
+            label={isTransferencia ? 'Conta de origem' : 'Conta'}
             options={accountOptions}
             error={errors.accountId?.message}
             {...register('accountId', { required: 'Selecione uma conta' })}
           />
-          <Select
-            label="Categoria"
-            options={categoryOptions}
-            {...register('categoryId')}
-          />
+          {isTransferencia ? (
+            <>
+              <Select
+                label="Conta de destino"
+                options={accountOptions}
+                error={errors.contaDestinoId?.message}
+                {...register('contaDestinoId', {
+                  shouldUnregister: true,
+                  required: 'Selecione a conta de destino',
+                  validate: (v, form) =>
+                    v !== form.accountId || 'Escolha uma conta diferente da de origem',
+                })}
+              />
+              <p className="text-xs text-gray-500">
+                Transferência entre suas próprias contas. Não conta como receita nem
+                despesa. Um PIX para outra pessoa é despesa.
+              </p>
+            </>
+          ) : (
+            <Select
+              label="Categoria"
+              options={categoryOptions}
+              {...register('categoryId')}
+            />
+          )}
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input
               type="checkbox"

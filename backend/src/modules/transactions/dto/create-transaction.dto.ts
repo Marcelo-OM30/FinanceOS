@@ -9,6 +9,7 @@ import {
   IsArray,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateTransactionDto {
@@ -28,6 +29,11 @@ export class CreateTransactionDto {
 
   @IsUUID()
   accountId: string;
+
+  // Obrigatória em transferência; nos outros tipos o service recusa.
+  @ValidateIf((o) => o.tipo === 'transferência')
+  @IsUUID()
+  contaDestinoId?: string;
 
   @IsOptional()
   @IsUUID()

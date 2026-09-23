@@ -59,12 +59,14 @@ removido (login e cadastro respondem 400 nos erros).
 | GET | `/transactions/:id` | inclui `category`, `account`, `card` |
 | POST | `/transactions` | ver DTO abaixo |
 | PATCH | `/transactions/:id` | todos os campos opcionais |
-| DELETE | `/transactions/:id` | 204, reverte o saldo da conta |
+| DELETE | `/transactions/:id` | 204, reverte o saldo da conta (das duas, em transferência) |
 
 **Query de `GET /transactions`:** `accountId`, `categoryId`, `cardId`,
-`dataInicio`, `dataFim`, `tipo`, `page` (1), `limit` (20).
+`dataInicio`, `dataFim`, `tipo`, `page` (1), `limit` (20). `accountId` casa
+com a origem **ou** com o destino da transferência.
 
 **Resposta:** `{ data: Transaction[], total, page, limit }` ← **embrulhada**.
+Cada item traz `account`, `contaDestino` (null fora de transferência), `category` e `card`.
 
 **Body de `POST /transactions`:**
 
@@ -74,8 +76,9 @@ removido (login e cadastro respondem 400 nos erros).
 | `descricao` | string | ✅ | máx. 255 |
 | `valor` | number | ✅ | mín. 0.01, 2 casas decimais |
 | `data` | string | ✅ | ISO `YYYY-MM-DD` |
-| `accountId` | uuid | ✅ | precisa pertencer ao usuário |
-| `cardId` | uuid | | |
+| `accountId` | uuid | ✅ | precisa pertencer ao usuário; em transferência, é a origem |
+| `contaDestinoId` | uuid | só em transferência | do usuário e diferente de `accountId`; em outro tipo dá 400 |
+| `cardId` | uuid | | proibido em transferência |
 | `categoryId` | uuid | | |
 | `dataCompetencia` | string | | ISO |
 | `recurso` | string | | `manual` \| `importado` \| `bancário` |

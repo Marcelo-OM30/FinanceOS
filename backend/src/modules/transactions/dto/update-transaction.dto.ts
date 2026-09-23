@@ -36,6 +36,10 @@ export class UpdateTransactionDto {
 
   @IsOptional()
   @IsUUID()
+  contaDestinoId?: string;
+
+  @IsOptional()
+  @IsUUID()
   cardId?: string;
 
   @IsOptional()

@@ -259,8 +259,14 @@ sem fatura aberta correspondente, cria-se a fatura.
 
 `POST /card-invoices/:id/pagar` com `{ accountId, data, valor? }`:
 
-1. cria uma transação `despesa` com `cardId = null`, `accountId` informado,
-   `confirmada = true` — **esta** é a que mexe no saldo
+1. cria a transação de pagamento com `cardId = null`, `accountId` informado,
+   `confirmada = true` — **esta** é a que mexe no saldo. **Não** é `despesa`: as
+   compras já contaram como despesa, e o `summary` somaria o mesmo gasto duas vezes.
+   É uma transferência da conta para o cartão — a mesma regra da transferência
+   entre contas (implementada em 23/09/2026): mexe no saldo, fica fora dos totais.
+   Como cartão não é conta, o destino precisa de um campo próprio (ex.:
+   `cardInvoiceId`) em vez de `contaDestinoId`. Isso também resolve a decisão 3
+   do §7 (categoria do pagamento): fica sem categoria
 2. grava `pagamentoTransactionId`, `status = 'paga'`
 3. confirma em bloco as transações da fatura (`confirmada = true`) — elas continuam sem
    afetar o saldo por terem `cardId` preenchido, mas passam a contar como realizadas no
@@ -534,11 +540,12 @@ bug clássico de tracker de carteira.
 > Para contas de `tipo = 'investimento'`, `saldoAtual` passa a ser **derivado**: soma das
 > posições a valor de mercado. `investment_transactions` **não** mexem em `saldoAtual`.
 
-Isso mantém investimentos independentes do item 2 do backlog (`transferência` não credita
-conta destino), que continua quebrado. O aporte — tirar dinheiro da conta corrente e pôr na
-corretora — só será representável corretamente quando a transferência for consertada. Até
-lá, o aporte é lançado como a compra do ativo e a saída da conta corrente é lançada à parte.
-Está registrado aqui como **dívida consciente**, não como esquecimento.
+Isso mantém investimentos independentes da transferência. Em 23/09/2026 a transferência
+passou a creditar a conta destino, mas com esta regra um crédito numa conta de investimento
+seria sobrescrito pelo saldo derivado. Ao implementar esta fase, decidir se o aporte é uma
+transferência para a conta de investimento (e o `saldoAtual` dela deixa de ser derivado) ou
+se a transferência para conta de investimento deve ser recusada e o aporte continua sendo a
+compra do ativo mais a saída lançada à parte.
 
 ### 6.4 Cotações
 
